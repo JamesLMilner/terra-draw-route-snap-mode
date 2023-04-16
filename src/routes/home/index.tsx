@@ -67,6 +67,7 @@ const Home = () => {
           />
         ) : null}
         {draw ? <MapButtons mode={mode} changeMode={changeMode} /> : null}
+        {!draw ? <div class={style.loading}>Loading...</div> : null}
       </div>
     </div>
   );

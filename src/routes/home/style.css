@@ -72,6 +72,16 @@
   display: none;
 }
 
+.loading {
+  height: 100%;
+  z-index: 100000;
+  background: white;
+  font-size: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 @media screen and (max-width: 900px) {
   .expanded,
   .collapsed {
