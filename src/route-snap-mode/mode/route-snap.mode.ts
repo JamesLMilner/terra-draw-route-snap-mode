@@ -13,7 +13,7 @@ import { GeoJSONStoreFeatures } from "terra-draw/dist/store/store";
 
 import { Position } from "geojson";
 
-const { TerraDrawBaseDrawMode, TerraDrawBaseAdapter } = TerraDrawExtend;
+const { TerraDrawBaseDrawMode } = TerraDrawExtend;
 
 type TerraDrawLineStringModeKeyEvents = {
   cancel: KeyboardEvent["key"] | null;
