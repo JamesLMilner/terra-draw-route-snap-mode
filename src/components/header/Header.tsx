@@ -12,9 +12,6 @@ const Header = () => (
         <Link activeClassName={style.active} href="/">
           Home
         </Link>
-        <Link activeClassName={style.active} href="/api">
-          API Docs
-        </Link>
       </nav>
     </div>
     <div class={style.github}>

@@ -1,17 +1,19 @@
 import {
+  TerraDrawExtend,
+
+  // Types
   HexColor,
-  TerraDrawMouseEvent,
   TerraDrawAdapterStyling,
   TerraDrawKeyboardEvent,
-} from "terra-draw/dist/common";
-import { TerraDrawExtend } from "terra-draw";
+  TerraDrawMouseEvent,
+} from "terra-draw";
 import { Feature, LineString } from "geojson";
 import { BehaviorConfig } from "terra-draw/dist/modes/base.behavior";
 import { GeoJSONStoreFeatures } from "terra-draw/dist/store/store";
 
 import { Position } from "geojson";
 
-const { TerraDrawBaseDrawMode } = TerraDrawExtend;
+const { TerraDrawBaseDrawMode, TerraDrawBaseAdapter } = TerraDrawExtend;
 
 type TerraDrawLineStringModeKeyEvents = {
   cancel: KeyboardEvent["key"] | null;
