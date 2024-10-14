@@ -1,15 +1,14 @@
 import {
   TerraDrawExtend,
-
-  // Types
   HexColor,
   TerraDrawAdapterStyling,
   TerraDrawKeyboardEvent,
   TerraDrawMouseEvent,
+  BehaviorConfig,
+  GeoJSONStoreFeatures,
 } from "terra-draw";
 import { Feature, LineString } from "geojson";
-import { BehaviorConfig } from "terra-draw/dist/modes/base.behavior";
-import { GeoJSONStoreFeatures } from "terra-draw/dist/store/store";
+
 
 import { Position } from "geojson";
 
@@ -20,6 +19,14 @@ type TerraDrawLineStringModeKeyEvents = {
   finish: KeyboardEvent["key"] | null;
 };
 
+export interface RoutingInterface {
+  getRoute: (
+    startCoord: Position,
+    endCoord: Position
+  ) => Feature<LineString> | undefined;
+  getClosestNetworkCoordinate: (coordinate: Position) => Position | undefined;
+}
+
 type RouteStyling = {
   lineStringWidth: number;
   lineStringColor: HexColor;
@@ -28,14 +35,6 @@ type RouteStyling = {
   routePointOutlineColor: HexColor;
   routePointOutlineWidth: number;
 };
-
-export interface RoutingInterface {
-  getRoute: (
-    startCoord: Position,
-    endCoord: Position
-  ) => Feature<LineString> | undefined;
-  getClosestNetworkCoordinate: (coordinate: Position) => Position | undefined;
-}
 
 export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
   mode = "routesnap";
@@ -113,7 +112,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
   }
 
   /** @internal */
-  registerBehaviors(config: BehaviorConfig) {}
+  registerBehaviors(config: BehaviorConfig) { }
 
   /** @internal */
   start() {
@@ -147,7 +146,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
         this.measure(
           event,
           currentLineGeometry.coordinates[
-            currentLineGeometry.coordinates.length - 1
+          currentLineGeometry.coordinates.length - 1
           ]
         ) < this.pointerDistance
       ) {
@@ -192,7 +191,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
         },
       ]);
 
-      this.moveLineId = createdId;
+      this.moveLineId = createdId as string;
     } else {
       this.store.updateGeometry([
         {
@@ -222,7 +221,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
         this.measure(
           event,
           currentLineGeometry.coordinates[
-            currentLineGeometry.coordinates.length - 1
+          currentLineGeometry.coordinates.length - 1
           ]
         ) < this.pointerDistance
       ) {
@@ -257,8 +256,8 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
           },
         ]);
 
-        this.currentId = createdId;
-        this.currentPointIds.push(pointId);
+        this.currentId = createdId as string;
+        this.currentPointIds.push(pointId as string);
         this.currentCoordinate++;
 
         if (this.state === "started") {
@@ -293,7 +292,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
         ]);
 
         this.currentCoordinate = 2;
-        this.currentPointIds.push(pointId);
+        this.currentPointIds.push(pointId as string);
       }
 
       if (this.maxPoints === 1) {
@@ -348,14 +347,14 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
           this.close();
         } else {
           this.currentCoordinate++;
-          this.currentPointIds.push(pointId);
+          this.currentPointIds.push(pointId as string);
         }
       }
     }
   }
 
   /** @internal */
-  onKeyDown() {}
+  onKeyDown() { }
 
   /** @internal */
   onKeyUp(event: TerraDrawKeyboardEvent) {
@@ -369,13 +368,13 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
   }
 
   /** @internal */
-  onDragStart() {}
+  onDragStart() { }
 
   /** @internal */
-  onDrag() {}
+  onDrag() { }
 
   /** @internal */
-  onDragEnd() {}
+  onDragEnd() { }
 
   /** @internal */
   cleanUp() {
@@ -383,7 +382,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
       if (this.currentId) {
         this.store.delete([this.currentId, ...this.currentPointIds]);
       }
-    } catch (error) {}
+    } catch (error) { }
 
     this.currentId = undefined;
     this.currentCoordinate = 0;
