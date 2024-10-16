@@ -14,12 +14,12 @@ export function setupDraw(map: L.Map, leaflet: typeof L, network: any) {
       map,
       coordinatePrecision: 9,
     }),
-    modes: {
-      routesnap: new RouteSnapMode({
+    modes: [
+      new RouteSnapMode({
         routing: new Routing(network),
         maxPoints: 5,
       }),
-      select: new TerraDrawSelectMode({
+      new TerraDrawSelectMode({
         flags: {
           routesnap: {
             feature: {
@@ -27,7 +27,7 @@ export function setupDraw(map: L.Map, leaflet: typeof L, network: any) {
             },
           },
         },
-      }),
-    },
+      })
+    ]
   });
 }

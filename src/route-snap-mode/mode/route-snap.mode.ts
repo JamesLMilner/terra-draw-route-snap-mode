@@ -7,10 +7,7 @@ import {
   BehaviorConfig,
   GeoJSONStoreFeatures,
 } from "terra-draw";
-import { Feature, LineString } from "geojson";
-
-
-import { Position } from "geojson";
+import { Feature, LineString, Position } from "geojson";
 
 const { TerraDrawBaseDrawMode } = TerraDrawExtend;
 
