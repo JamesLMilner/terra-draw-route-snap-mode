@@ -1,5 +1,5 @@
 import { h } from "preact";
-import style from "./style.css";
+import style from "./style.module.css";
 import { getHHMMSS } from "../../utils/dates";
 import { area, length } from "../../utils/geo";
 import { useMemo } from "preact/hooks";
@@ -78,8 +78,8 @@ const InfoTab = ({
           {selected && selected.geometry.type === "Polygon"
             ? selected.geometry.coordinates[0].length
             : selected && selected.geometry.type === "LineString"
-            ? selected.geometry.coordinates.length
-            : "N/A"}
+              ? selected.geometry.coordinates.length
+              : "N/A"}
         </span>
         <span class={style.row}>
           <span class={style.type}>Area (m2)</span>

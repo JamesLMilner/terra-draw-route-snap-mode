@@ -1,5 +1,5 @@
 import { h } from "preact";
-import style from "./style.css";
+import style from "./style.module.css";
 import {
   useMemo,
   useRef,
@@ -14,6 +14,8 @@ import MapButtons from "../../components/map-buttons/MapButtons";
 import GeolocationButton from "../../components/geolocation-button/GeolocationButton";
 
 const Home = () => {
+  console.log("Home.tsx");
+
   const mapOptions = {
     L,
     id: "leaflet-map",
@@ -27,7 +29,7 @@ const Home = () => {
   const [network, setNetwork] = useState<any>();
 
   useEffect(() => {
-    fetch("./assets/network/network.json").then((res) => {
+    fetch("./src/assets/network/network.json").then((res) => {
       res.json().then((network) => {
         setNetwork(network);
       });
