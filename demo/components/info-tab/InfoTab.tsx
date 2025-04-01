@@ -3,7 +3,7 @@ import style from "./style.module.css";
 import { getHHMMSS } from "../../utils/dates";
 import { area, length } from "../../utils/geo";
 import { useMemo } from "preact/hooks";
-import { GeoJSONStoreFeatures } from "terra-draw/dist/store/store";
+import { GeoJSONStoreFeatures } from "../../node_modules/terra-draw/dist/store/store";
 
 const InfoTab = ({
   selected,

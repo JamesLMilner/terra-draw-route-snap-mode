@@ -9,7 +9,7 @@ import {
 } from "terra-draw";
 import { Feature, LineString, Position } from "geojson";
 
-const { TerraDrawBaseDrawMode } = TerraDrawExtend;
+const { TerraDrawBaseDrawMode, } = TerraDrawExtend;
 
 type TerraDrawLineStringModeKeyEvents = {
   cancel: KeyboardEvent["key"] | null;
@@ -25,12 +25,12 @@ export interface RoutingInterface {
 }
 
 type RouteStyling = {
-  lineStringWidth: number;
-  lineStringColor: HexColor;
-  routePointColor: HexColor;
-  routePointWidth: number;
-  routePointOutlineColor: HexColor;
-  routePointOutlineWidth: number;
+  lineStringWidth: TerraDrawExtend.NumericStyling;
+  lineStringColor: TerraDrawExtend.HexColorStyling
+  routePointColor: TerraDrawExtend.HexColorStyling;
+  routePointWidth: TerraDrawExtend.NumericStyling;
+  routePointOutlineColor: TerraDrawExtend.HexColorStyling;
+  routePointOutlineWidth: TerraDrawExtend.NumericStyling;
 };
 
 export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
@@ -44,6 +44,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
   private moveLineId: string | undefined;
   private routing: RoutingInterface;
   private currentPointIds: string[] = [];
+  private routeId = 0;
 
   constructor(options: {
     routing: RoutingInterface;
@@ -180,11 +181,13 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
       return;
     }
 
+    // console.log(this.moveLineId);
+
     if (!this.moveLineId) {
       const [createdId] = this.store.create([
         {
           geometry: geojsonRoute.geometry,
-          properties: { mode: this.mode, isDrawnRoute: true },
+          properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
         },
       ]);
 
@@ -230,6 +233,8 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
 
         return;
       }
+    } else {
+      this.routeId++;
     }
 
     let closestPoint = this.routing.getClosestNetworkCoordinate(eventCoord);
@@ -242,14 +247,14 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
               type: "LineString",
               coordinates: [closestPoint],
             },
-            properties: { mode: this.mode, isDrawnRoute: true },
+            properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
           },
           {
             geometry: {
               type: "Point",
               coordinates: closestPoint,
             },
-            properties: { mode: this.mode, isDrawnRoute: true },
+            properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
           },
         ]);
 
@@ -284,7 +289,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
               type: "Point",
               coordinates: closestPoint,
             },
-            properties: { mode: this.mode, isDrawnRoute: true },
+            properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
           },
         ]);
 
@@ -336,7 +341,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
               type: "Point",
               coordinates: closestPoint,
             },
-            properties: { mode: this.mode, isDrawnRoute: true },
+            properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
           },
         ]);
 
@@ -382,6 +387,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
     } catch (error) { }
 
     this.currentId = undefined;
+    this.moveLineId = undefined;
     this.currentCoordinate = 0;
     if (this.state === "drawing") {
       this.setStarted();
@@ -402,21 +408,17 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
       lineStringColor: "#B90E0A",
       lineStringWidth: 4,
       zIndex: 0,
-    } as TerraDrawAdapterStyling;
+    } as any;
 
     if (
       feature.type === "Feature" &&
       feature.geometry.type === "LineString" &&
       feature.properties.mode === this.mode
     ) {
-      styles.lineStringColor = this.styles.lineStringColor
-        ? this.styles.lineStringColor
-        : styles.lineStringColor;
+      styles.lineStringColor = this.getHexColorStylingValue(this.styles.lineStringColor, "#B90E0A", feature);
       styles.zIndex = 10;
 
-      styles.lineStringWidth = this.styles.lineStringWidth
-        ? this.styles.lineStringWidth
-        : styles.lineStringWidth;
+      styles.lineStringWidth = this.getNumericStylingValue(this.styles.lineStringWidth, 4, feature);
 
       return styles;
     } else if (
@@ -424,14 +426,11 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
       feature.geometry.type === "Point" &&
       feature.properties.mode === this.mode
     ) {
-      styles.pointOutlineColor =
-        this.styles.routePointColor !== undefined
-          ? this.styles.routePointColor
-          : styles.pointOutlineColor;
-      styles.pointOutlineWidth =
-        this.styles.routePointOutlineWidth !== undefined
-          ? this.styles.routePointOutlineWidth
-          : styles.pointOutlineWidth;
+      console.log('point')
+      styles.pointColor = this.getHexColorStylingValue(this.styles.routePointColor, "#B90E0A", feature);
+      styles.pointOutlineColor = this.getHexColorStylingValue(this.styles.routePointColor, "#B90E0A", feature);
+
+      styles.pointOutlineWidth = this.getNumericStylingValue(this.styles.routePointOutlineWidth, 1, feature);
 
       return styles;
     }

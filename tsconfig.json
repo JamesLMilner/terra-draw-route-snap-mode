@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     /* Basic Options */
-    "target": "ES5", /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', or 'ESNEXT'. */
+    "target": "ES2017", /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', or 'ESNEXT'. */
     "module": "ESNext", /* Specify module code generation: 'none', commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */
     // "lib": [],                             /* Specify library files to be included in the compilation:  */
     "allowJs": true, /* Allow javascript files to be compiled. */
@@ -33,13 +33,14 @@
     /* Module Resolution Options */
     "moduleResolution": "node", /* Specify module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6). */
     "esModuleInterop": true, /* */
+    "resolveJsonModule": true,
     "baseUrl": "./", /* Base directory to resolve non-absolute module names. */
     "paths": { /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */
       "react": [
-        "./node_modules/preact/compat"
+        "../node_modules/preact/compat"
       ],
       "react-dom": [
-        "./node_modules/preact/compat"
+        "../node_modules/preact/compat"
       ]
     },
     // "rootDirs": [],                        /* List of root folders whose combined content represents the structure of the project at runtime. */
@@ -59,6 +60,9 @@
     // "skipLibCheck": true                      /* Skip type checking of declaration files. */
   },
   "include": [
-    "src/**/*"
+    "**/*"
+  ],
+  "types": [
+    "jest"
   ]
 }

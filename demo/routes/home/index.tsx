@@ -11,17 +11,24 @@ import { setupDraw } from "./setup-draw";
 import { setupLeafletMap } from "./setup-leaflet";
 import * as L from "leaflet";
 import MapButtons from "../../components/map-buttons/MapButtons";
-import GeolocationButton from "../../components/geolocation-button/GeolocationButton";
+import convex from '@turf/convex';
+import { GeoJSONStoreFeatures } from "terra-draw";
 
 const Home = () => {
   console.log("Home.tsx");
 
+  const lat = 51.532831;
+  const lng = -0.0969151;
   const mapOptions = {
     L,
     id: "leaflet-map",
-    lng: -0.0969151,
-    lat: 51.532831,
+    lng,
+    lat,
     zoom: 16,
+    minZoom: 14,
+    maxZoom: 20,
+    tapTolerance: 10,
+    maxBounds: [[lat - 0.1, lng - 0.1], [lat + 0.1, lng + 0.1]] as any
   };
   const ref = useRef(null);
   const [map, setMap] = useState<undefined | L.Map>();
@@ -29,21 +36,38 @@ const Home = () => {
   const [network, setNetwork] = useState<any>();
 
   useEffect(() => {
-    fetch("./src/assets/network/network.json").then((res) => {
+    fetch("./assets/network/network.json").then((res) => {
       res.json().then((network) => {
         setNetwork(network);
+
+
+
       });
     });
   }, []);
 
   useEffect(() => {
-    setMap(setupLeafletMap(mapOptions));
+    if (!map) {
+      setMap(setupLeafletMap(mapOptions));
+    }
   }, []);
 
   const draw = useMemo(() => {
     if (map && network) {
       const terraDraw = setupDraw(map, L, network);
       terraDraw.start();
+
+
+      console.log('mode')
+      const convexHull = convex(network)
+
+      if (convexHull && convexHull.properties) {
+        convexHull.properties.mode = 'networkOutline'
+      }
+
+      console.log(convexHull);
+      terraDraw.addFeatures([convexHull as GeoJSONStoreFeatures]);
+
       return terraDraw;
     }
   }, [map, network]);
@@ -61,14 +85,10 @@ const Home = () => {
   return (
     <div class={style.home}>
       <div ref={ref} class={style.map} id={mapOptions.id}>
-        {navigator.geolocation && draw ? (
-          <GeolocationButton
-            setLocation={(position) => {
-              map && map.setView([position[1], position[0]], 14);
-            }}
-          />
-        ) : null}
-        {draw ? <MapButtons mode={mode} changeMode={changeMode} /> : null}
+        {draw ? <MapButtons mode={mode} changeMode={changeMode} onClear={() => {
+          const routes = draw.getSnapshot().filter((f) => f.properties.mode === 'routesnap');
+          draw.removeFeatures(routes.map((f) => f.id) as any[]);
+        }} /> : null}
         {!draw ? <div class={style.loading}>Loading...</div> : null}
       </div>
     </div>

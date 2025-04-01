@@ -1,4 +1,3 @@
-import PathFinder, { pathToGeoJSON } from "geojson-path-finder";
 import kdbush from "kdbush";
 import geokdbush from "geokdbush";
 import {
@@ -8,12 +7,21 @@ import {
   Feature,
   Point,
 } from "geojson";
-import { RoutingInterface } from "../mode/route-snap.mode";
+import { RoutingInterface } from "./route-snap.mode";
+
+type RouteFinder = {
+  getRoute: (positionA: Feature<Point>, positionB: Feature<Point>) => Feature<LineString> | null
+}
 
 export class Routing implements RoutingInterface {
-  constructor(network: FeatureCollection<LineString>) {
-    this.network = network;
-    this.pathFinder = new PathFinder(network);
+  constructor(options: {
+    network: FeatureCollection<LineString>, useCache?: boolean,
+    routeFinder: RouteFinder
+  }) {
+    this.useCache = options.useCache || true;
+    this.network = options.network;
+
+    this.routeFinder = options.routeFinder;
 
     const points: Position[] = [];
 
@@ -25,8 +33,9 @@ export class Routing implements RoutingInterface {
 
     this.indexedNetworkPoints = new kdbush(points);
   }
+  private useCache: boolean = true;
   private indexedNetworkPoints: any;
-  private pathFinder: PathFinder<any, any>;
+  private routeFinder: any;
   private network: FeatureCollection<LineString>;
   private _routeCache: Record<string, Feature<LineString>> = {};
 
@@ -41,10 +50,15 @@ export class Routing implements RoutingInterface {
     return nearest ? nearest[0] : undefined;
   }
 
-  public getRoute(startCoord: Position, endCoord: Position) {
-    const routeKey = `${startCoord}-${endCoord}`;
-    if (this._routeCache[routeKey]) {
-      return this._routeCache[routeKey];
+  public getRoute(startCoord: Position, endCoord: Position): Feature<LineString> | undefined {
+
+    // Check if caching is enabled, and if the coordinates are already in the cache  
+    if (this.useCache) {
+      const routeKey = `${startCoord}-${endCoord}`;
+
+      if (this._routeCache[routeKey]) {
+        return this._routeCache[routeKey];
+      }
     }
 
     const start = {
@@ -55,6 +69,7 @@ export class Routing implements RoutingInterface {
       },
       properties: {},
     } as Feature<Point>;
+
     const end = {
       type: "Feature",
       geometry: {
@@ -64,15 +79,16 @@ export class Routing implements RoutingInterface {
       properties: {},
     } as Feature<Point>;
 
-    const route = this.pathFinder.findPath(start, end);
-    if (route && route.path.length > 1) {
-      const result = pathToGeoJSON(route);
-      if (result) {
-        this._routeCache[routeKey] = result;
-        return result;
-      }
+    const route = this.routeFinder.getRoute(start, end);
+
+    // If caching is enabled, store the route in the cache
+    if (this.useCache) {
+      const routeKey = `${startCoord}-${endCoord}`
+      this._routeCache[routeKey] = route;
+      return route;
     }
 
-    return undefined;
+    return route;
+
   }
 }

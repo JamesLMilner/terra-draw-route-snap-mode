@@ -7,19 +7,28 @@ export function setupLeafletMap({
   lat,
   lng,
   zoom,
+  minZoom,
+  maxZoom,
+  tapTolerance,
+  maxBounds
 }: {
   L: typeof leaflet;
   id: string;
   lat: number;
   lng: number;
   zoom: number;
+  minZoom: number;
+  maxZoom: number;
+  tapTolerance: number;
+  maxBounds: leaflet.LatLngBoundsExpression | undefined;
 }) {
   const leafletMap = L.map(id, {
     center: [lat, lng],
     zoom: zoom, // starting zoom,
-    minZoom: 3,
-    maxZoom: 20,
-    tapTolerance: 10,
+    minZoom,
+    maxZoom,
+    tapTolerance,
+    maxBounds,
   });
 
   const PMTILES_KEY = "d23c43b7c56e123d";
