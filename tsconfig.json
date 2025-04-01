@@ -60,7 +60,8 @@
     // "skipLibCheck": true                      /* Skip type checking of declaration files. */
   },
   "include": [
-    "**/*"
+    "**/*",
+    "../jest.config.js"
   ],
   "types": [
     "jest"

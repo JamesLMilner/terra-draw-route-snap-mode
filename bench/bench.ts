@@ -90,4 +90,4 @@ const benchmark = (networkPath: string, pairs: [Position, Position][]) => {
     console.log(`TerraRoute with CheapRuler is ${percentageDifferenceWithCheapRuler.toFixed(2)}% ${percentageDifferenceWithCheapRuler > 0 ? 'faster' : 'slower'} than PathFinder`);
 }
 
-benchmark(__dirname + '/../demo/assets/network/network.json', shuffleArray(pointNetworkPairs));
+benchmark(__dirname + '/../demo/public/network.json', shuffleArray(pointNetworkPairs));

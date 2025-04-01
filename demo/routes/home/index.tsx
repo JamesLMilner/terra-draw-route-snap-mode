@@ -36,12 +36,12 @@ const Home = () => {
   const [network, setNetwork] = useState<any>();
 
   useEffect(() => {
-    fetch("./assets/network/network.json").then((res) => {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const path = isLocalhost ? '/public/network.json' : './network.json';
+
+    fetch(path).then((res) => {
       res.json().then((network) => {
         setNetwork(network);
-
-
-
       });
     });
   }, []);
