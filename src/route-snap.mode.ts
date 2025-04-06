@@ -426,7 +426,6 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
       feature.geometry.type === "Point" &&
       feature.properties.mode === this.mode
     ) {
-      console.log('point')
       styles.pointColor = this.getHexColorStylingValue(this.styles.routePointColor, "#B90E0A", feature);
       styles.pointOutlineColor = this.getHexColorStylingValue(this.styles.routePointColor, "#B90E0A", feature);
 

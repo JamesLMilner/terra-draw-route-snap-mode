@@ -24,7 +24,7 @@ export function setupLeafletMap({
 }) {
   const leafletMap = L.map(id, {
     center: [lat, lng],
-    zoom: zoom, // starting zoom,
+    zoom, // starting zoom,
     minZoom,
     maxZoom,
     tapTolerance,
@@ -32,7 +32,7 @@ export function setupLeafletMap({
   });
 
   const PMTILES_KEY = "d23c43b7c56e123d";
-  var layer = protomaps.leafletLayer({
+  const layer = protomaps.leafletLayer({
     url: `https://api.protomaps.com/tiles/v2/{z}/{x}/{y}.pbf?key=${PMTILES_KEY}`,
   });
   layer.addTo(leafletMap);

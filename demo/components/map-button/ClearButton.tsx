@@ -8,12 +8,10 @@ const ClearButton = ({
   onClick: () => void;
   label?: string;
 }) => {
-  let classes = style.button;
-
   return (
     <button
       id={'clear'}
-      class={classes}
+      class={style.button}
       onClick={() => {
         onClick()
       }}

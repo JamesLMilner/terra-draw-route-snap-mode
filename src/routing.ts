@@ -1,5 +1,5 @@
-import kdbush from "kdbush";
-import geokdbush from "geokdbush";
+import { KDBush } from "./kdbush/kdbush";
+import { around } from "./kdbush/geokdbush";
 import {
   FeatureCollection,
   LineString,
@@ -23,31 +23,37 @@ export class Routing implements RoutingInterface {
 
     this.routeFinder = options.routeFinder;
 
-    const points: Position[] = [];
-
     this.network.features.forEach((feature) => {
       feature.geometry.coordinates.forEach((coordinate) => {
-        points.push(coordinate);
+        this.points.push(coordinate);
       });
     });
 
-    this.indexedNetworkPoints = new kdbush(points);
+    this.indexedNetworkPoints = new KDBush(this.points.length);
+
+    this.points.forEach(coordinate => {
+      this.indexedNetworkPoints.add(coordinate[0], coordinate[1]);
+    })
+
+    this.indexedNetworkPoints.finish();
   }
   private useCache: boolean = true;
-  private indexedNetworkPoints: any;
+  private indexedNetworkPoints: KDBush;
+  private points: Position[] = []
   private routeFinder: any;
   private network: FeatureCollection<LineString>;
   private _routeCache: Record<string, Feature<LineString>> = {};
 
   public getClosestNetworkCoordinate(inputCoordinate: Position) {
-    const nearest: Position[] | undefined = geokdbush.around(
+    const aroundInput: number[] = around(
       this.indexedNetworkPoints,
       inputCoordinate[0],
       inputCoordinate[1],
       1
     );
 
-    return nearest ? nearest[0] : undefined;
+    const nearest = this.points[aroundInput[0]]
+    return nearest;
   }
 
   public getRoute(startCoord: Position, endCoord: Position): Feature<LineString> | undefined {

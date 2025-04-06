@@ -1,27 +1,118 @@
 {
-    "name": "src",
-    "version": "1.0.0",
+    "name": "terra-draw-route-snap-mode",
+    "version": "0.0.1",
     "description": "",
     "main": "index.js",
     "scripts": {
-        "test": "jest",
-        "bench": "tsx bench/bench.ts"
+        "build": "microbundle",
+        "watch": "microbundle --watch --format modern",
+        "unused": "knip",
+        "test": "jest --config jest.config.js",
+        "test:coverage": "jest --config jest.config.js --coverage",
+        "test:nocheck": "jest --config jest.nocheck.config.ts",
+        "test:nocheck:coverage": "jest --config jest.nocheck.config.ts --coverage",
+        "lint": "eslint src/",
+        "lint:quiet": "eslint --quiet src/",
+        "lint:fix": "eslint --fix src/",
+        "lint:fix:quiet": "eslint --fix --quiet src/",
+        "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|json)\"",
+        "format:quiet": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|json)\" --log-level=silent"
     },
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "geojson-path-finder": "^2.0.1",
         "geokdbush": "^1.1.0",
         "kdbush": "^3.0.0",
         "terra-draw": "1.4.0"
     },
     "devDependencies": {
+        "jest": "^29.7.0",
+        "ts-jest": "^29.3.1",
+        "tsx": "^4.19.3",
+        "@commitlint/cli": "17.1.2",
+        "@commitlint/config-conventional": "17.1.0",
+        "@conventional-changelog/git-client": "^1.0.1",
+        "@eslint/json": "0.9.0",
+        "@eslint/markdown": "6.2.1",
+        "@swc/jest": "0.2.36",
         "@types/geojson": "^7946.0.16",
         "@types/geokdbush": "^1.1.5",
         "@types/jest": "^29.5.14",
         "@types/node": "^22.13.14",
-        "jest": "^29.7.0",
-        "ts-jest": "^29.3.1",
-        "tsx": "^4.19.3"
+        "@types/rbush": "3.0.0",
+        "@typescript-eslint/eslint-plugin": "8.17.0",
+        "@typescript-eslint/parser": "8.17.0",
+        "commit-and-tag-version": "^12.5.0",
+        "conventional-recommended-bump": "^10.0.0",
+        "eslint": "9.17.0",
+        "eslint-config-prettier": "9.1.0",
+        "eslint-plugin-prettier": "5.2.1",
+        "husky": "7.0.4",
+        "jest-environment-jsdom": "29.7.0",
+        "knip": "5.30.2",
+        "microbundle": "0.15.0",
+        "serve": "14.2.4",
+        "ts-loader": "9.5.1",
+        "typedoc": "0.26.11",
+        "typescript": "5.6.3"
+    },
+    "commitlint": {
+        "extends": [
+            "@commitlint/config-conventional"
+        ],
+        "rules": {
+            "scope-empty": [
+                2,
+                "never"
+            ],
+            "scope-enum": [
+                2,
+                "always",
+                [
+                    "terra-draw",
+                    "terra-draw-arcgis-adapter",
+                    "terra-draw-google-maps-adapter",
+                    "terra-draw-leaflet-adapter",
+                    "terra-draw-mapbox-gl-adapter",
+                    "terra-draw-maplibre-gl-adapter",
+                    "terra-draw-openlayers-adapter"
+                ]
+            ]
+        }
+    },
+    "prettier": {
+        "printWidth": 80,
+        "semi": true,
+        "useTabs": true
+    },
+    "knip": {
+        "$schema": "https://unpkg.com/knip@5/schema.json",
+        "entry": [
+            "packages/terra-draw/src/terra-draw.ts",
+            "packages/terra-draw-arcgis-adapter/src/terra-draw-arcgis-adapter.ts",
+            "packages/terra-draw-google-maps-adapter/src/terra-draw-google-maps-adapter.ts",
+            "packages/terra-draw-leaflet-adapter/src/terra-draw-leaflet-adapter.ts",
+            "packages/terra-draw-mapbox-gl-adapter/src/terra-draw-mapbox-gl-adapter.ts",
+            "packages/terra-draw-maplibre-gl-adapter/src/terra-draw-maplibre-gl-adapter.ts",
+            "packages/terra-draw-openlayers-adapter/src/terra-draw-openlayers-adapter.ts"
+        ],
+        "project": [
+            "packages/terra-draw/src/**/*.ts",
+            "packages/terra-draw-arcgis-adapter/src/**/*.ts",
+            "packages/terra-draw-google-maps-adapter/src/**/*.ts",
+            "packages/terra-draw-leaflet-adapter/src/**/*.ts",
+            "packages/terra-draw-mapbox-gl-adapter/src/**/*.ts",
+            "packages/terra-draw-maplibre-gl-adapter/src/**/*.ts",
+            "packages/terra-draw-openlayers-adapter/src/**/*.ts"
+        ],
+        "ignore": [
+            "**/jest.config.ts",
+            "**/jest.nocheck.config.ts",
+            "**/.versionrc.cjs"
+        ],
+        "include": [
+            "files",
+            "types"
+        ]
     }
 }

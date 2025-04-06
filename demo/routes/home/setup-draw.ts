@@ -9,26 +9,9 @@ import {
 import * as L from "leaflet";
 import { RouteSnapMode } from "../../../src/route-snap.mode";
 import { Routing } from "../../../src/routing";
-import { FeatureCollection, LineString } from "geojson";
-import TerraRoute from "../../../src/terra-route/terra-route";
-import { createCheapRuler } from "../../../src/terra-route/distance/cheap-ruler";
 import { getColorBlindSafeHex } from "./colors";
 
-
-export function setupDraw(map: L.Map, leaflet: typeof L, network: FeatureCollection<LineString>) {
-
-  // CheapRuler provides a fast way to measure distances geographically when
-  // the distance is not too large i.e. less than 500km  
-  const measureDistance = createCheapRuler(network.features[0].geometry.coordinates[0][1]);
-
-  const terraRoute = new TerraRoute(network, measureDistance)
-
-  const terraRouting = new Routing({
-    network,
-    useCache: false,
-    routeFinder: terraRoute
-  })
-
+export function setupDraw(map: L.Map, leaflet: typeof L, routing: Routing) {
   const colorStore: Record<string, string> = {}
 
   const draw = new TerraDraw({
@@ -43,12 +26,12 @@ export function setupDraw(map: L.Map, leaflet: typeof L, network: FeatureCollect
         styles: {
           polygonOutlineColor: '#d1cfcf',
           polygonFillColor: '#eeeeee',
-          polygonFillOpacity: 0.2,
+          polygonFillOpacity: 0.19,
           polygonOutlineWidth: 2,
         }
       }),
       new RouteSnapMode({
-        routing: terraRouting,
+        routing,
         maxPoints: 5,
         styles: {
           lineStringColor: (feature) => {
