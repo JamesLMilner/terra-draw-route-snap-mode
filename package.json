@@ -1,8 +1,7 @@
 {
     "name": "terra-draw-route-snap-mode",
     "version": "0.0.1",
-    "description": "",
-    "main": "index.js",
+    "description": "A mode for Terra Draw to provide snapping to a route network",
     "scripts": {
         "build": "microbundle",
         "watch": "microbundle --watch --format modern",
@@ -18,12 +17,23 @@
         "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|json)\"",
         "format:quiet": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|json)\" --log-level=silent"
     },
-    "author": "",
-    "license": "ISC",
+    "type": "module",
+    "source": "src/terra-draw-route-snap-mode.ts",
+    "exports": {
+        "types": "./dist/terra-draw-route-snap-mode.d.ts",
+        "require": "./dist/terra-draw-route-snap-mode.cjs",
+        "default": "./dist/terra-draw-route-snap-mode.modern.js"
+    },
+    "types": "./dist/terra-draw-route-snap-mode.d.ts",
+    "main": "./dist/terra-draw-route-snap-mode.cjs",
+    "module": "./dist/terra-draw-route-snap-mode.module.js",
+    "unpkg": "./dist/terra-draw-route-snap-mode.umd.js",
+    "author": "James Milner",
+    "license": "MIT",
     "dependencies": {
         "geokdbush": "^1.1.0",
         "kdbush": "^3.0.0",
-        "terra-draw": "1.4.0"
+        "terra-draw": "1.4.3"
     },
     "devDependencies": {
         "jest": "^29.7.0",
@@ -59,26 +69,7 @@
     "commitlint": {
         "extends": [
             "@commitlint/config-conventional"
-        ],
-        "rules": {
-            "scope-empty": [
-                2,
-                "never"
-            ],
-            "scope-enum": [
-                2,
-                "always",
-                [
-                    "terra-draw",
-                    "terra-draw-arcgis-adapter",
-                    "terra-draw-google-maps-adapter",
-                    "terra-draw-leaflet-adapter",
-                    "terra-draw-mapbox-gl-adapter",
-                    "terra-draw-maplibre-gl-adapter",
-                    "terra-draw-openlayers-adapter"
-                ]
-            ]
-        }
+        ]
     },
     "prettier": {
         "printWidth": 80,
@@ -88,22 +79,10 @@
     "knip": {
         "$schema": "https://unpkg.com/knip@5/schema.json",
         "entry": [
-            "packages/terra-draw/src/terra-draw.ts",
-            "packages/terra-draw-arcgis-adapter/src/terra-draw-arcgis-adapter.ts",
-            "packages/terra-draw-google-maps-adapter/src/terra-draw-google-maps-adapter.ts",
-            "packages/terra-draw-leaflet-adapter/src/terra-draw-leaflet-adapter.ts",
-            "packages/terra-draw-mapbox-gl-adapter/src/terra-draw-mapbox-gl-adapter.ts",
-            "packages/terra-draw-maplibre-gl-adapter/src/terra-draw-maplibre-gl-adapter.ts",
-            "packages/terra-draw-openlayers-adapter/src/terra-draw-openlayers-adapter.ts"
+            "src/terra-route.ts"
         ],
         "project": [
-            "packages/terra-draw/src/**/*.ts",
-            "packages/terra-draw-arcgis-adapter/src/**/*.ts",
-            "packages/terra-draw-google-maps-adapter/src/**/*.ts",
-            "packages/terra-draw-leaflet-adapter/src/**/*.ts",
-            "packages/terra-draw-mapbox-gl-adapter/src/**/*.ts",
-            "packages/terra-draw-maplibre-gl-adapter/src/**/*.ts",
-            "packages/terra-draw-openlayers-adapter/src/**/*.ts"
+            "src/**/*.ts"
         ],
         "ignore": [
             "**/jest.config.ts",

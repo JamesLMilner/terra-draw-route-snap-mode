@@ -2,17 +2,18 @@ import {
   TerraDraw,
   TerraDrawRenderMode,
   TerraDrawSelectMode,
+  TerraDrawExtend
 } from "terra-draw";
 import {
   TerraDrawLeafletAdapter
 } from "terra-draw-leaflet-adapter";
 import * as L from "leaflet";
-import { RouteSnapMode } from "../../../src/route-snap.mode";
+import { TerraDrawRouteSnapMode } from "../../../src/terra-draw-route-snap-mode";
 import { Routing } from "../../../src/routing";
 import { getColorBlindSafeHex } from "./colors";
 
 export function setupDraw(map: L.Map, leaflet: typeof L, routing: Routing) {
-  const colorStore: Record<string, string> = {}
+  const colorStore: Record<string, TerraDrawExtend.HexColorStyling> = {}
 
   const draw = new TerraDraw({
     adapter: new TerraDrawLeafletAdapter({
@@ -30,21 +31,23 @@ export function setupDraw(map: L.Map, leaflet: typeof L, routing: Routing) {
           polygonOutlineWidth: 2,
         }
       }),
-      new RouteSnapMode({
+      new TerraDrawRouteSnapMode({
         routing,
         maxPoints: 5,
         styles: {
           lineStringColor: (feature) => {
-            if (!colorStore[feature.properties.routeId as string]) {
-              colorStore[feature.properties.routeId as string] = getColorBlindSafeHex() as any;
+            const routeId = feature.properties.routeId as string;
+            if (!routeId) {
+              colorStore[routeId] = getColorBlindSafeHex() as TerraDrawExtend.HexColorStyling;
             }
-            return colorStore[feature.properties.routeId as string] as any;
+            return colorStore[routeId] as `#${string}`
           },
           routePointColor: (feature) => {
-            if (!colorStore[feature.properties.routeId as string]) {
-              colorStore[feature.properties.routeId as string] = getColorBlindSafeHex() as any;
+            const routeId = feature.properties.routeId as string;
+            if (!colorStore[routeId]) {
+              colorStore[routeId] = getColorBlindSafeHex() as TerraDrawExtend.HexColorStyling;
             }
-            return colorStore[feature.properties.routeId as string] as any;
+            return colorStore[routeId] as `#${string}`;
           }
         }
       }),

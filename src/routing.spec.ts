@@ -35,6 +35,20 @@ describe("Routing", () => {
         getRoute: jest.fn().mockReturnValue(mockRoute),
     };
 
+    it("should return null for empty network", () => {
+        const routing = new Routing({
+            network: {
+                type: "FeatureCollection",
+                features: [
+                ],
+            }, routeFinder: mockRouteFinder
+        });
+
+        const closest = routing.getClosestNetworkCoordinate([0, 0]);
+
+        expect(closest).toEqual(null);
+    });
+
     it("should find the closest network coordinate with exact match", () => {
         const routing = new Routing({ network, routeFinder: mockRouteFinder });
 

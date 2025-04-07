@@ -7,12 +7,16 @@ import {
   Feature,
   Point,
 } from "geojson";
-import { RoutingInterface } from "./route-snap.mode";
+import { RoutingInterface } from "./terra-draw-route-snap-mode";
 
 type RouteFinder = {
   getRoute: (positionA: Feature<Point>, positionB: Feature<Point>) => Feature<LineString> | null
 }
-
+/**
+ * Routing class for finding routes on a network of LineStrings.
+ * The LineString network must have coordinates that are shared between
+ * the LineStrings in order to find a route.
+ */
 export class Routing implements RoutingInterface {
   constructor(options: {
     network: FeatureCollection<LineString>, useCache?: boolean,
@@ -40,10 +44,15 @@ export class Routing implements RoutingInterface {
   private useCache: boolean = true;
   private indexedNetworkPoints: KDBush;
   private points: Position[] = []
-  private routeFinder: any;
+  private routeFinder: RouteFinder;
   private network: FeatureCollection<LineString>;
-  private _routeCache: Record<string, Feature<LineString>> = {};
+  private routeCache: Record<string, Feature<LineString> | null> = {};
 
+  /**
+   * Return the closest network coordinate to the input coordinate
+   * @param inputCoordinate The coordinate to find the closest network coordinate to
+   * @returns a coordinate on the network or null if no coordinate is found
+   */
   public getClosestNetworkCoordinate(inputCoordinate: Position) {
     const aroundInput: number[] = around(
       this.indexedNetworkPoints,
@@ -53,17 +62,23 @@ export class Routing implements RoutingInterface {
     );
 
     const nearest = this.points[aroundInput[0]]
-    return nearest;
+    return nearest ? nearest : null;
   }
 
-  public getRoute(startCoord: Position, endCoord: Position): Feature<LineString> | undefined {
+  /**
+   * Get the route between two coordinates returned as a GeoJSON LineString
+   * @param startCoord start coordinate
+   * @param endCoord end coordinate
+   * @returns The route as a GeoJSON LineString
+   */
+  public getRoute(startCoord: Position, endCoord: Position): Feature<LineString> | null {
 
     // Check if caching is enabled, and if the coordinates are already in the cache  
     if (this.useCache) {
       const routeKey = `${startCoord}-${endCoord}`;
 
-      if (this._routeCache[routeKey]) {
-        return this._routeCache[routeKey];
+      if (this.routeCache[routeKey]) {
+        return this.routeCache[routeKey];
       }
     }
 
@@ -90,7 +105,7 @@ export class Routing implements RoutingInterface {
     // If caching is enabled, store the route in the cache
     if (this.useCache) {
       const routeKey = `${startCoord}-${endCoord}`
-      this._routeCache[routeKey] = route;
+      this.routeCache[routeKey] = route;
       return route;
     }
 

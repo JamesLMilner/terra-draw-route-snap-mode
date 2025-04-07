@@ -1,27 +1,37 @@
 import {
-  TerraDrawExtend,
-  HexColor,
   TerraDrawAdapterStyling,
   TerraDrawKeyboardEvent,
   TerraDrawMouseEvent,
   BehaviorConfig,
   GeoJSONStoreFeatures,
+  TerraDrawExtend
 } from "terra-draw";
 import { Feature, LineString, Position } from "geojson";
-
-const { TerraDrawBaseDrawMode, } = TerraDrawExtend;
+import { Validation } from "terra-draw/dist/common";
 
 type TerraDrawLineStringModeKeyEvents = {
   cancel: KeyboardEvent["key"] | null;
   finish: KeyboardEvent["key"] | null;
 };
 
+const defaultKeyEvents = { cancel: "Escape", finish: "Enter" };
+
+interface Cursors {
+  draw?: TerraDrawExtend.Cursor;
+  close?: TerraDrawExtend.Cursor;
+}
+
+const defaultCursors = {
+  draw: "crosshair",
+  close: "pointer"
+} as Required<Cursors>;
+
 export interface RoutingInterface {
   getRoute: (
     startCoord: Position,
     endCoord: Position
-  ) => Feature<LineString> | undefined;
-  getClosestNetworkCoordinate: (coordinate: Position) => Position | undefined;
+  ) => Feature<LineString> | null;
+  getClosestNetworkCoordinate: (coordinate: Position) => Position | null;
 }
 
 type RouteStyling = {
@@ -33,41 +43,59 @@ type RouteStyling = {
   routePointOutlineWidth: TerraDrawExtend.NumericStyling;
 };
 
-export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
-  mode = "routesnap";
+interface TerraDrawPolygonModeOptions<T extends TerraDrawExtend.CustomStyling>
+  extends TerraDrawExtend.BaseModeOptions<T> {
+  routing: RoutingInterface;
+  pointerDistance?: number;
+  keyEvents?: TerraDrawLineStringModeKeyEvents | null;
+  maxPoints?: number;
+  cursors?: Partial<Cursors>;
+}
+
+const { TerraDrawBaseDrawMode } = TerraDrawExtend;
+
+export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
+  mode = "routesnap" as const;
 
   private currentCoordinate = 0;
   private currentId: string | undefined;
-  private keyEvents: TerraDrawLineStringModeKeyEvents;
+  private keyEvents: TerraDrawLineStringModeKeyEvents = defaultKeyEvents;
+  private cursors: Required<Cursors> = defaultCursors;
 
-  private maxPoints: number;
+  private maxPoints: number = 1
   private moveLineId: string | undefined;
-  private routing: RoutingInterface;
+  private routing!: RoutingInterface;
   private currentPointIds: string[] = [];
   private routeId = 0;
 
-  constructor(options: {
-    routing: RoutingInterface;
-    pointerDistance?: number;
-    styles?: Partial<RouteStyling>;
-    keyEvents?: TerraDrawLineStringModeKeyEvents | null;
-    maxPoints?: number;
-  }) {
-    super(options);
+  constructor(options?: TerraDrawPolygonModeOptions<RouteStyling>) {
+    super(options, true);
+    this.updateOptions(options);
+  }
 
-    this.routing = options.routing;
-    this.maxPoints = options.maxPoints || 1;
+  override updateOptions(options?: Partial<TerraDrawPolygonModeOptions<RouteStyling>>) {
+    super.updateOptions(options);
 
-    // We want to have some defaults, but also allow key bindings
-    // to be explicitly turned off
+    if (options?.routing && options.routing !== this.routing) {
+      // We can't guarantee the rout created so far is valid with the new routing 
+      // So we need to clean up the current state
+      this.cleanUp();
+      this.routing = options.routing;
+    }
+
+    if (options?.maxPoints !== undefined && options.maxPoints !== this.maxPoints && options.maxPoints > 0) {
+      this.maxPoints = options.maxPoints;
+    }
+
+    if (options?.cursors) {
+      this.cursors = { ...this.cursors, ...options.cursors };
+    }
+
+    // null is the case where we want to explicitly turn key bindings off
     if (options?.keyEvents === null) {
       this.keyEvents = { cancel: null, finish: null };
-    } else {
-      const defaultKeyEvents = { cancel: "Escape", finish: "Enter" };
-      this.keyEvents =
-        options && options.keyEvents
-          ? { ...defaultKeyEvents, ...options.keyEvents }
-          : defaultKeyEvents;
+    } else if (options?.keyEvents) {
+      this.keyEvents = { ...this.keyEvents, ...options.keyEvents };
     }
   }
 
@@ -115,7 +143,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
   /** @internal */
   start() {
     this.setStarted();
-    this.setCursor("crosshair");
+    this.setCursor(this.cursors.draw);
   }
 
   /** @internal */
@@ -127,7 +155,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
 
   /** @internal */
   onMouseMove(event: TerraDrawMouseEvent) {
-    this.setCursor("crosshair");
+    this.setCursor(this.cursors.draw);
 
     if (!this.currentId || this.currentCoordinate === 0) {
       return;
@@ -148,7 +176,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
           ]
         ) < this.pointerDistance
       ) {
-        this.setCursor("pointer");
+        this.setCursor(this.cursors.close);
         if (this.moveLineId) {
           this.store.delete([this.moveLineId]);
           this.moveLineId = undefined;
@@ -181,8 +209,6 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
       return;
     }
 
-    // console.log(this.moveLineId);
-
     if (!this.moveLineId) {
       const [createdId] = this.store.create([
         {
@@ -208,7 +234,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
       return;
     }
 
-    this.setCursor("pointer");
+    // this.setCursor("pointer");
 
     const eventCoord = [event.lng, event.lat] as Position;
 
@@ -396,19 +422,7 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
 
   /** @internal */
   styleFeature(feature: GeoJSONStoreFeatures): TerraDrawAdapterStyling {
-    const styles = {
-      polygonFillColor: "#3f97e0",
-      polygonOutlineColor: "#3f97e0",
-      polygonOutlineWidth: 4,
-      polygonFillOpacity: 0.3,
-      pointColor: "#B90E0A",
-      pointOutlineColor: "#ffffff",
-      pointOutlineWidth: 2,
-      pointWidth: 5,
-      lineStringColor: "#B90E0A",
-      lineStringWidth: 4,
-      zIndex: 0,
-    } as any;
+    const styles = TerraDrawExtend.getDefaultStyling();
 
     if (
       feature.type === "Feature" &&
@@ -416,9 +430,8 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
       feature.properties.mode === this.mode
     ) {
       styles.lineStringColor = this.getHexColorStylingValue(this.styles.lineStringColor, "#B90E0A", feature);
-      styles.zIndex = 10;
-
       styles.lineStringWidth = this.getNumericStylingValue(this.styles.lineStringWidth, 4, feature);
+      styles.zIndex = 10;
 
       return styles;
     } else if (
@@ -428,7 +441,6 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
     ) {
       styles.pointColor = this.getHexColorStylingValue(this.styles.routePointColor, "#B90E0A", feature);
       styles.pointOutlineColor = this.getHexColorStylingValue(this.styles.routePointColor, "#B90E0A", feature);
-
       styles.pointOutlineWidth = this.getNumericStylingValue(this.styles.routePointOutlineWidth, 1, feature);
 
       return styles;
@@ -436,4 +448,15 @@ export class RouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
 
     return styles;
   }
+
+  validateFeature(feature: unknown): ReturnType<Validation> {
+    return super.validateFeature(feature)
+  }
+
+  afterFeatureAdded(feature: GeoJSONStoreFeatures) { }
+
 }
+
+const x = new TerraDrawRouteSnapMode();
+
+export { Routing } from "./routing";

@@ -1,4 +1,4 @@
-import { Routing } from "../../../src/routing";
+import { Routing } from "../../../src/terra-draw-route-snap-mode";
 import { FeatureCollection, LineString } from "geojson";
 import { TerraRoute, createCheapRuler } from 'terra-route';
 
