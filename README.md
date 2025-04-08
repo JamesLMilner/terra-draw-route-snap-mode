@@ -44,7 +44,7 @@ You could construct the `routing` like so:
 ```typescript
 import { Routing } from "../../../src/terra-draw-route-snap-mode";
 import { FeatureCollection, LineString } from "geojson";
-import { TerraRoute, createCheapRuler } from 'terra-route';
+import { TerraRoute } from 'terra-route';
 
 // Initialise the TerraRoute instance with the default distance
 const terraRoute = new TerraRoute()
