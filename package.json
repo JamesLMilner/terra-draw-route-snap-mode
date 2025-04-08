@@ -30,10 +30,9 @@
     "unpkg": "./dist/terra-draw-route-snap-mode.umd.js",
     "author": "James Milner",
     "license": "MIT",
-    "dependencies": {
-        "geokdbush": "^1.1.0",
-        "kdbush": "^3.0.0",
-        "terra-draw": "1.4.3"
+    "dependencies": {},
+    "peerDependencies": {
+        "terra-draw": "^1.4.3"
     },
     "devDependencies": {
         "jest": "^29.7.0",
@@ -79,15 +78,14 @@
     "knip": {
         "$schema": "https://unpkg.com/knip@5/schema.json",
         "entry": [
-            "src/terra-route.ts"
+            "src/terra-draw-route-snap-mode.ts"
         ],
         "project": [
             "src/**/*.ts"
         ],
         "ignore": [
             "**/jest.config.ts",
-            "**/jest.nocheck.config.ts",
-            "**/.versionrc.cjs"
+            "**/jest.nocheck.config.ts"
         ],
         "include": [
             "files",
