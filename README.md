@@ -9,7 +9,11 @@ This repository is for the `TerraDrawRouteSnappingMode` module. `TerraDrawRouteS
 npm install terra-draw-route-snap-mode
 ```
 
-## Usage
+## Docs
+
+You can find the [API Docs here](https://jameslmilner.github.io/terra-draw-route-snap-mode/api/)
+
+## Basic Usage
 
 We can import `TerraDrawRouteSnapMode` in this way:
 
@@ -30,7 +34,7 @@ We can construct `TerraDrawRouteSnapMode` like so:
     }),
 ```
 
-Where routing is of type:
+Where `routing` is a property of type:
 
 ```typescript
  export interface RoutingInterface {
