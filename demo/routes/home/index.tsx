@@ -63,17 +63,20 @@ const Home = () => {
       const terraDraw = setupDraw(map, L, routing);
       terraDraw.start();
 
-      // We add a convex hull of the network to the map so 
-      // the user can see the network outline 
-      const convexHull = convex(network)
-      if (convexHull && convexHull.properties) {
-        convexHull.properties.mode = 'networkOutline'
-      }
-      terraDraw.addFeatures([convexHull as GeoJSONStoreFeatures]);
-
       return terraDraw;
     }
   }, [map, network, routing]);
+
+  const convexHull = useMemo(() => {
+    if (network && draw) {
+      const convexHull = convex(network) as GeoJSONStoreFeatures;
+      if (convexHull && convexHull.properties) {
+        convexHull.properties.mode = 'networkOutline';
+      }
+      draw.addFeatures([convexHull]);
+      return convexHull;
+    }
+  }, [draw, network]);
 
   const changeMode = useCallback(
     (newMode: string) => {
@@ -89,8 +92,8 @@ const Home = () => {
     <div class={style.home}>
       <div ref={ref} class={style.map} id={mapOptions.id}>
         {draw ? <MapButtons mode={mode} changeMode={changeMode} onClear={() => {
-          const routes = draw.getSnapshot().filter((f) => f.properties.mode === 'routesnap');
-          draw.removeFeatures(routes.map((f) => f.id) as any[]);
+          draw.clear();
+          convexHull && draw.addFeatures([convexHull]);
         }} /> : null}
         {!draw ? <div class={style.loading}>Loading...</div> : null}
       </div>

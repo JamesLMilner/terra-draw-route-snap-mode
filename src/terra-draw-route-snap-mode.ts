@@ -157,6 +157,10 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
   onMouseMove(event: TerraDrawMouseEvent) {
     this.setCursor(this.cursors.draw);
 
+    if (this.moveLineId && !this.store.has(this.moveLineId)) {
+      this.moveLineId = undefined;
+    }
+
     if (!this.currentId || this.currentCoordinate === 0) {
       return;
     }
@@ -234,9 +238,13 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
       return;
     }
 
-    // this.setCursor("pointer");
-
     const eventCoord = [event.lng, event.lat] as Position;
+
+    if (this.currentId && !this.store.has(this.currentId)) {
+      this.currentId = undefined;
+      this.currentCoordinate = 0;
+      this.currentPointIds = [];
+    }
 
     if (this.currentId) {
       const currentLineGeometry = this.store.getGeometryCopy<LineString>(
