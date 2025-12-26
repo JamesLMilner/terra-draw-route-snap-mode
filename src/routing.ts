@@ -9,9 +9,11 @@ import {
 } from "geojson";
 import { RoutingInterface } from "./terra-draw-route-snap-mode";
 
-type RouteFinder = {
+export type RouteFinder = {
   getRoute: (positionA: Feature<Point>, positionB: Feature<Point>) => Feature<LineString> | null
+  setNetwork: (network: FeatureCollection<LineString>) => void
 }
+
 /**
  * Routing class for finding routes on a network of LineStrings.
  * The LineString network must have coordinates that are shared between
@@ -24,9 +26,20 @@ export class Routing implements RoutingInterface {
   }) {
     this.useCache = options.useCache || true;
     this.network = options.network;
-
     this.routeFinder = options.routeFinder;
 
+    this.initialise();
+  }
+
+  private useCache: boolean = true;
+  private indexedNetworkPoints!: KDBush;
+  private points: Position[] = []
+  private routeFinder: RouteFinder;
+  private network: FeatureCollection<LineString>;
+  private routeCache: Record<string, Feature<LineString> | null> = {};
+
+  // Initialise the routing instance setting internal data structures
+  private initialise() {
     this.network.features.forEach((feature) => {
       feature.geometry.coordinates.forEach((coordinate) => {
         this.points.push(coordinate);
@@ -40,13 +53,9 @@ export class Routing implements RoutingInterface {
     })
 
     this.indexedNetworkPoints.finish();
+
+    this.routeCache = {};
   }
-  private useCache: boolean = true;
-  private indexedNetworkPoints: KDBush;
-  private points: Position[] = []
-  private routeFinder: RouteFinder;
-  private network: FeatureCollection<LineString>;
-  private routeCache: Record<string, Feature<LineString> | null> = {};
 
   /**
    * Return the closest network coordinate to the input coordinate
@@ -63,6 +72,28 @@ export class Routing implements RoutingInterface {
 
     const nearest = this.points[aroundInput[0]]
     return nearest ? nearest : null;
+  }
+
+  /**
+   * Set the route finder for the routing instance
+   * @param routeFinder The route finder to use
+   */
+  public setRouteFinder(routeFinder: RouteFinder) {
+    this.routeFinder = routeFinder;
+  }
+
+  /**
+   * Set the network for the routing instance
+   * @param network The network to use
+   */
+  public setNetwork(network: FeatureCollection<LineString>) {
+    this.network = network;
+
+    // Ensure the network is updated correctly for the router finder
+    this.routeFinder.setNetwork(network);
+
+    // Re-initialize all internal data structures for this class
+    this.initialise();
   }
 
   /**

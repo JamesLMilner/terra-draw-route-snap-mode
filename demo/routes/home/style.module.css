@@ -82,7 +82,32 @@
   align-items: center;
 }
 
+.routingSelect {
+  z-index: 1001;
+  position: absolute;
+  right: 0;
+  display: flex;
+  font-size: 24px;
+  border-radius: 10px;
+  padding: 12px;
+  border: solid 3px;
+  margin: 5px;
+}
+
+.split {
+  z-index: 1001;
+  position: absolute;
+  right: 300px;
+  display: flex;
+  font-size: 24px;
+  border-radius: 10px;
+  padding: 12px;
+  border: solid 3px;
+  margin: 5px;
+}
+
 @media screen and (max-width: 900px) {
+
   .expanded,
   .collapsed {
     display: none;

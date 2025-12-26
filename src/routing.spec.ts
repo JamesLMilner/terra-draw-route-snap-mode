@@ -1,5 +1,6 @@
 import { Feature, LineString, FeatureCollection } from "geojson";
 import { Routing } from "./routing";
+import { TerraRoute } from "terra-route";
 
 const mockRoute: Feature<LineString> = {
     type: "Feature",
@@ -33,6 +34,7 @@ describe("Routing", () => {
 
     const mockRouteFinder = {
         getRoute: jest.fn().mockReturnValue(mockRoute),
+        setNetwork: jest.fn(),
     };
 
     it("should return null for empty network", () => {
@@ -87,5 +89,48 @@ describe("Routing", () => {
         routing.getRoute([0, 0], [1, 1]);
 
         expect(mockRouteFinder.getRoute).toHaveBeenCalledTimes(2);
+    });
+
+    it('should update the network correctly with real a route finder', () => {
+        const terraRoute = new TerraRoute();
+        terraRoute.buildRouteGraph(network);
+
+        const routing = new Routing({
+            network, routeFinder: {
+                getRoute: terraRoute.getRoute.bind(terraRoute),
+                setNetwork: terraRoute.buildRouteGraph.bind(terraRoute)
+            }
+        });
+
+        jest.spyOn(routing, "setNetwork");
+
+        const existingRoute = routing.getRoute([0, 0], [1, 1]);
+        expect(existingRoute?.geometry.coordinates).toEqual([[0, 0], [1, 1]]);
+        expect(routing.getRoute([2, 2], [3, 3])).toBeNull();
+
+        const newNetwork: FeatureCollection<LineString> = {
+            type: "FeatureCollection",
+            features: [
+                {
+                    type: "Feature",
+                    geometry: {
+                        type: "LineString",
+                        coordinates: [
+                            [2, 2],
+                            [3, 3],
+                        ],
+                    },
+                    properties: {},
+                },
+            ],
+        };
+
+        routing.setNetwork(newNetwork);
+
+        expect(routing.setNetwork).toHaveBeenCalledWith(newNetwork);
+
+        const newRoute = routing.getRoute([2, 2], [3, 3]);
+        expect(newRoute?.geometry.coordinates).toEqual([[2, 2], [3, 3]]);
+        expect(routing.getRoute([0, 0], [1, 1])).toBeNull();
     });
 });

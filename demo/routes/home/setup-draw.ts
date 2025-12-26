@@ -1,7 +1,6 @@
 import {
   TerraDraw,
   TerraDrawRenderMode,
-  TerraDrawSelectMode,
   TerraDrawExtend
 } from "terra-draw";
 import {
@@ -22,6 +21,7 @@ export function setupDraw(map: L.Map, leaflet: typeof L, routing: Routing) {
       coordinatePrecision: 9,
     }),
     modes: [
+      // Needed for outline
       new TerraDrawRenderMode({
         modeName: 'networkOutline',
         styles: {
@@ -51,15 +51,6 @@ export function setupDraw(map: L.Map, leaflet: typeof L, routing: Routing) {
           }
         }
       }),
-      new TerraDrawSelectMode({
-        flags: {
-          routesnap: {
-            feature: {
-              coordinates: {},
-            },
-          },
-        },
-      })
     ]
   });
 

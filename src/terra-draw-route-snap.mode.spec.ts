@@ -3,7 +3,8 @@ import { TerraDrawRouteSnapMode } from "./terra-draw-route-snap-mode";
 
 describe("TerraDrawRouteSnapMode", () => {
     const mockRouteFinder = {
-        getRoute: jest.fn()
+        getRoute: jest.fn(),
+        setNetwork: jest.fn(),
     };
 
     it("should construct the class correctly", () => {

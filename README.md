@@ -46,7 +46,7 @@ Where `routing` is a property of type:
 You could construct the `routing` like so:
 
 ```typescript
-import { Routing } from "../../../src/terra-draw-route-snap-mode";
+import { Routing } from "terra-draw-route-snap-mode";
 import { FeatureCollection, LineString } from "geojson";
 import { TerraRoute } from 'terra-route';
 
