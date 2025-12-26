@@ -6,8 +6,9 @@ import {
   GeoJSONStoreFeatures,
   TerraDrawExtend
 } from "terra-draw";
-import { Feature, LineString, Position } from "geojson";
+import { LineString, Position } from "geojson";
 import { Validation } from "terra-draw/dist/common";
+import { RoutingInterface } from "./routing";
 
 type TerraDrawLineStringModeKeyEvents = {
   cancel: KeyboardEvent["key"] | null;
@@ -25,14 +26,6 @@ const defaultCursors = {
   draw: "crosshair",
   close: "pointer"
 } as Required<Cursors>;
-
-export interface RoutingInterface {
-  getRoute: (
-    startCoord: Position,
-    endCoord: Position
-  ) => Feature<LineString> | null;
-  getClosestNetworkCoordinate: (coordinate: Position) => Position | null;
-}
 
 type RouteStyling = {
   lineStringWidth: TerraDrawExtend.NumericStyling;
@@ -465,6 +458,4 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
 
 }
 
-const x = new TerraDrawRouteSnapMode();
-
-export { Routing } from "./routing";
+export { Routing, RouteFinder, RoutingInterface } from "./routing";

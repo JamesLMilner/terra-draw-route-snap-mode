@@ -7,11 +7,18 @@ import {
   Feature,
   Point,
 } from "geojson";
-import { RoutingInterface } from "./terra-draw-route-snap-mode";
 
 export type RouteFinder = {
   getRoute: (positionA: Feature<Point>, positionB: Feature<Point>) => Feature<LineString> | null
   setNetwork: (network: FeatureCollection<LineString>) => void
+}
+
+export interface RoutingInterface {
+  getRoute: (
+    startCoord: Position,
+    endCoord: Position
+  ) => Feature<LineString> | null;
+  getClosestNetworkCoordinate: (coordinate: Position) => Position | null;
 }
 
 /**

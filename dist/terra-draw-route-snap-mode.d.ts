@@ -1,6 +1,6 @@
 import { TerraDrawAdapterStyling, TerraDrawKeyboardEvent, TerraDrawMouseEvent, BehaviorConfig, GeoJSONStoreFeatures, TerraDrawExtend } from "terra-draw";
-import { Feature, LineString, Position } from "geojson";
 import { Validation } from "terra-draw/dist/common";
+import { RoutingInterface } from "./routing";
 type TerraDrawLineStringModeKeyEvents = {
     cancel: KeyboardEvent["key"] | null;
     finish: KeyboardEvent["key"] | null;
@@ -8,10 +8,6 @@ type TerraDrawLineStringModeKeyEvents = {
 interface Cursors {
     draw?: TerraDrawExtend.Cursor;
     close?: TerraDrawExtend.Cursor;
-}
-export interface RoutingInterface {
-    getRoute: (startCoord: Position, endCoord: Position) => Feature<LineString> | null;
-    getClosestNetworkCoordinate: (coordinate: Position) => Position | null;
 }
 type RouteStyling = {
     lineStringWidth: TerraDrawExtend.NumericStyling;
@@ -72,4 +68,4 @@ export declare class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteS
     validateFeature(feature: unknown): ReturnType<Validation>;
     afterFeatureAdded(feature: GeoJSONStoreFeatures): void;
 }
-export { Routing } from "./routing";
+export { Routing, RouteFinder, RoutingInterface } from "./routing";

@@ -1,9 +1,12 @@
 import { FeatureCollection, LineString, Position, Feature, Point } from "geojson";
-import { RoutingInterface } from "./terra-draw-route-snap-mode";
 export type RouteFinder = {
     getRoute: (positionA: Feature<Point>, positionB: Feature<Point>) => Feature<LineString> | null;
     setNetwork: (network: FeatureCollection<LineString>) => void;
 };
+export interface RoutingInterface {
+    getRoute: (startCoord: Position, endCoord: Position) => Feature<LineString> | null;
+    getClosestNetworkCoordinate: (coordinate: Position) => Position | null;
+}
 /**
  * Routing class for finding routes on a network of LineStrings.
  * The LineString network must have coordinates that are shared between
