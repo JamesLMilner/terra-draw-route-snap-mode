@@ -458,4 +458,4 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
 
 }
 
-export { Routing, RouteFinder, RoutingInterface } from "./routing";
+export { Routing, type RouteFinder, type RoutingInterface } from "./routing";

@@ -59,7 +59,7 @@ const Home = () => {
     }
   }, [map]);
 
-  const [routingOptionState, setRoutingOptionState] = useState<RouteFinderOptions>(RouteFinders.TerraRoute);
+  const [routingOption, setRoutingOption] = useState<RouteFinderOptions>(RouteFinders.TerraRoute);
 
   const routingProviders = useMemo(() => {
     if (network) {
@@ -116,6 +116,7 @@ const Home = () => {
       .filter(({ properties }) =>
         properties.mode !== 'networkOutline')
       .map(({ id }) => id as string);
+
     draw.removeFeatures(idsToRemove);
   }, [draw]);
 
@@ -146,6 +147,7 @@ const Home = () => {
           routing?.setNetwork(shrunkGraph);
           setPrunedGraph(shrunkGraph);
           const networkOutline = draw?.getSnapshot().find(({ properties }) => properties.mode === 'networkOutline');
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           draw?.removeFeatures([networkOutline!.id as string]);
 
           const convexHull = convex(shrunkGraph) as GeoJSONStoreFeatures;
@@ -157,12 +159,13 @@ const Home = () => {
           Prune
         </button>
         <select
+          value={routingOption}
           disabled={!routing || !routingProviders}
           onChange={(event) => {
             if (!routing || !routingProviders) return;
             const select = event.target as HTMLSelectElement;
             const value = select.options[select.selectedIndex].value as RouteFinderOptions;
-            setRoutingOptionState(value);
+            setRoutingOption(value);
             routing.setRouteFinder(routingProviders[value]);
           }}
           class={style.routingSelect}

@@ -38,8 +38,13 @@ Where `routing` is a property of type:
 
 ```typescript
  export interface RoutingInterface {
-    getRoute: (startCoord: Position, endCoord: Position) => Feature<LineString> | null;
+    getRoute: (
+        startCoord: Position,
+        endCoord: Position
+    ) => Feature<LineString> | null;
     getClosestNetworkCoordinate: (coordinate: Position) => Position | null;
+    setRouteFinder: (routeFinder: RouteFinder) => void;
+    setNetwork: (network: FeatureCollection<LineString>) => void
 }
 ```
 
