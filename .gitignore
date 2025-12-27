@@ -4,3 +4,4 @@ node_modules
 
 /**/**/scratch.ts
 .DS_Store
+.vscode/
