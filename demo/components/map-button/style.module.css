@@ -9,7 +9,6 @@
   font-size: 16px;
   color: #565656;
   margin: 4px;
-  margin-top: 8px;
   border: solid 3px #565656;
 }
 
@@ -23,10 +22,10 @@
   transition: color 0.5s;
 }
 
-.hiddenOnMobile {
-}
+.hiddenOnMobile {}
 
 @media screen and (max-width: 900px) {
+
   .expanded,
   .collapsed {
     display: none;

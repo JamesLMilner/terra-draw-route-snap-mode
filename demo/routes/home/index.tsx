@@ -41,6 +41,7 @@ const Home = () => {
   const [mode, setMode] = useState<string>("static");
   const [network, setNetwork] = useState<FeatureCollection<LineString>>();
   const [prunedGraph, setPrunedGraph] = useState<FeatureCollection<LineString>>();
+  const [showHelp, setShowHelp] = useState(true);
 
   useEffect(() => {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -120,60 +121,90 @@ const Home = () => {
     draw.removeFeatures(idsToRemove);
   }, [draw]);
 
+  const prune = useCallback(() => {
+    let networkToUse;
+
+    if (!prunedGraph && network) {
+      networkToUse = network;
+    } else if (prunedGraph) {
+      networkToUse = prunedGraph;
+    } else {
+      return;
+    }
+
+    const result = bbox(networkToUse);
+    const polygon = bboxPolygon(result);
+    const scaled = transformScale(polygon, 0.9);
+    const graph = new TerraRouteGraph(networkToUse);
+    const shrunkBBox = bbox(scaled) as [number, number, number, number];
+    const shrunkGraph = graph.getNetworkInBoundingBox(shrunkBBox);
+
+    routing?.setNetwork(shrunkGraph);
+    setPrunedGraph(shrunkGraph);
+    const networkOutline = draw
+      ?.getSnapshot()
+      .find(({ properties }) => properties.mode === "networkOutline");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    draw?.removeFeatures([networkOutline!.id as string]);
+
+    const convexHull = convex(shrunkGraph) as GeoJSONStoreFeatures;
+    if (convexHull && convexHull.properties) {
+      convexHull.properties.mode = "networkOutline";
+    }
+    draw?.addFeatures([convexHull]);
+  }, [draw, network, prunedGraph, routing]);
+
   return (
     <div class={style.home}>
       <div ref={ref} class={style.map} id={mapOptions.id}>
-        <button class={style.split} onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
 
-          let networkToUse
-          if (!prunedGraph && network) {
-            networkToUse = network;
-          } else if (prunedGraph) {
-            networkToUse = prunedGraph;
+        {showHelp ? (
+          <div class={style.helpOverlay} role="note" aria-label="Demo instructions">
+            <div class={style.helpHeader}>
+              <div class={style.helpTitle}>Terra Draw Route Snap Mode demo</div>
+              <button
+                type="button"
+                class={style.helpClose}
+                onClick={() => setShowHelp(false)}
+                aria-label="Close instructions"
+              >
+                ×
+              </button>
+            </div>
+            <div class={style.helpBody}>
+              <p>
+                This demo shows how <strong>Terra Draw Route Snap Mode</strong> snaps the
+                line you draw onto a routing network.
+              </p>
+              <ol>
+                <li>Select <strong>Route Snap</strong> from the mode buttons.</li>
+                <li>Click on the map to add up to <strong>5</strong> points.</li>
+                <li>Double-click (or finish) to commit the route.</li>
+                <li>
+                  Use <strong>Clear</strong> to remove drawn routes and <strong>Prune</strong> to
+                  shrink the network.
+                </li>
+              </ol>
+              <div class={style.helpHint}>Tip: you can reopen this panel by refreshing the page.</div>
+            </div>
+          </div>
+        ) : null}
 
-          } else {
-            return;
-          }
-
-          const result = bbox(networkToUse);
-          const polygon = bboxPolygon(result);
-          const scaled = transformScale(polygon, 0.9);
-          const graph = new TerraRouteGraph(networkToUse);
-          const shrunkBBox = bbox(scaled) as [number, number, number, number];
-          const shrunkGraph = graph.getNetworkInBoundingBox(shrunkBBox);
-
-          routing?.setNetwork(shrunkGraph);
-          setPrunedGraph(shrunkGraph);
-          const networkOutline = draw?.getSnapshot().find(({ properties }) => properties.mode === 'networkOutline');
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          draw?.removeFeatures([networkOutline!.id as string]);
-
-          const convexHull = convex(shrunkGraph) as GeoJSONStoreFeatures;
-          if (convexHull && convexHull.properties) {
-            convexHull.properties.mode = 'networkOutline';
-          }
-          draw?.addFeatures([convexHull]);
-        }}>
-          Prune
-        </button>
-        <select
-          value={routingOption}
-          disabled={!routing || !routingProviders}
-          onChange={(event) => {
-            if (!routing || !routingProviders) return;
-            const select = event.target as HTMLSelectElement;
-            const value = select.options[select.selectedIndex].value as RouteFinderOptions;
-            setRoutingOption(value);
-            routing.setRouteFinder(routingProviders[value]);
-          }}
-          class={style.routingSelect}
-        >
-          <option value={RouteFinders.TerraRoute}>Terra Route</option>
-          <option value={RouteFinders.GeoJSONPathFinder}>GeoJSON Path Finder</option>
-        </select>
-        {draw ? <MapButtons mode={mode} changeMode={changeMode} onClear={clear} /> : null}
+        {draw ? (
+          <MapButtons
+            mode={mode}
+            changeMode={changeMode}
+            onClear={clear}
+            onPrune={prune}
+            routingOption={routingOption}
+            routingDisabled={!routing || !routingProviders}
+            onRoutingChange={(value: RouteFinderOptions) => {
+              if (!routing || !routingProviders) return;
+              setRoutingOption(value);
+              routing.setRouteFinder(routingProviders[value]);
+            }}
+          />
+        ) : null}
         {draw ? null : <div class={style.loading}>Loading...</div>}
       </div>
     </div>

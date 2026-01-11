@@ -1,17 +1,120 @@
-.buttons {
+/*
+  Controls container for Route Snap, Clear, Prune and routing selector.
+  We intentionally keep button visuals aligned with `demo/components/map-button/style.module.css`.
+*/
+.controls {
   position: relative;
   top: 0;
   z-index: 1000;
-  margin: auto;
+  margin: 10px auto;
   display: flex;
   justify-content: center;
+  align-items: center;
   flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 10px;
 }
 
+/* Wrapper for the two primary controls (Route Snap + Clear). */
+.primaryRow {
+  display: contents;
+}
+
+.primaryControl {
+  display: contents;
+}
+
+.button,
+.routingSelect {
+  height: 44px;
+  padding: 0 10px;
+  background: #fdfdfd;
+  border: solid 3px #565656;
+  border-radius: 10px;
+  font-weight: bold;
+  font-size: 16px;
+  color: #565656;
+  margin: 4px;
+  width: 150px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button {
+  cursor: pointer;
+}
+
+.button:hover,
+.routingSelect:hover {
+  background: white;
+  border-color: #222222;
+}
+
+.routingSelect {
+  cursor: pointer;
+  /* native select doesn't always respect flex centering; this keeps the size consistent */
+  display: inline-block;
+  background: #fff3ee;
+  border-color: #f45f14;
+  color: #a63b06;
+}
+
+.routingSelect:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(244, 95, 20, 0.25);
+}
+
+/* Tablet */
 @media screen and (max-width: 900px) {
-  .buttons {
-    width: 85%;
-    margin: auto;
+  .controls {
+    width: calc(100% - 90px);
     margin-left: 45px;
+    margin-right: 45px;
+    justify-content: flex-start;
+  }
+
+  .button,
+  .routingSelect {
+    font-size: 16px;
+    height: 44px;
+    padding: 0 10px;
+    width: 130px;
+  }
+}
+
+/* Mobile: make the controls full-width and stack neatly */
+@media screen and (max-width: 520px) {
+  .controls {
+    width: calc(100% - 90px);
+    margin-left: 45px;
+    margin-right: 45px;
+  }
+
+  .primaryRow {
+    display: flex;
+    width: 100%;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .primaryControl {
+    width: 50%;
+    display: flex;
+  }
+
+  /* Ensure the MapButton/ClearButton inside the 50/50 row stretch to fill. */
+  .primaryControl :global(button) {
+    width: 100%;
+    margin: 4px;
+  }
+
+  /* Keep Prune + select fixed width on mobile; only the primary row is 50/50. */
+  .button,
+  .routingSelect {
+    font-size: 16px;
+    height: 44px;
+    padding: 0 10px;
+    width: 120px;
   }
 }
