@@ -21,5 +21,4 @@ describe("TerraDrawRouteSnapMode", () => {
 
         expect(routeSnapMode).toBeDefined();
     });
-
 });

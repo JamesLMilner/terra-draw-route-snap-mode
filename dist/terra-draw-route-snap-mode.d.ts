@@ -47,8 +47,10 @@ export declare class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteS
     start(): void;
     /** @internal */
     stop(): void;
+    private latestEvent;
     /** @internal */
     onMouseMove(event: TerraDrawMouseEvent): void;
+    private processMouseMove;
     /** @internal */
     onClick(event: TerraDrawMouseEvent): void;
     /** @internal */
@@ -68,4 +70,4 @@ export declare class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteS
     validateFeature(feature: unknown): ReturnType<Validation>;
     afterFeatureAdded(feature: GeoJSONStoreFeatures): void;
 }
-export { Routing, RouteFinder, RoutingInterface } from "./routing";
+export { Routing, type RouteFinder, type RoutingInterface } from "./routing";

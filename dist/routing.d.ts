@@ -6,6 +6,8 @@ export type RouteFinder = {
 export interface RoutingInterface {
     getRoute: (startCoord: Position, endCoord: Position) => Feature<LineString> | null;
     getClosestNetworkCoordinate: (coordinate: Position) => Position | null;
+    setRouteFinder: (routeFinder: RouteFinder) => void;
+    setNetwork: (network: FeatureCollection<LineString>) => void;
 }
 /**
  * Routing class for finding routes on a network of LineStrings.

@@ -146,8 +146,23 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
     this.setCursor("unset");
   }
 
+
+  private latestEvent: TerraDrawMouseEvent | null = null;
+
   /** @internal */
   onMouseMove(event: TerraDrawMouseEvent) {
+    this.latestEvent = event;
+
+    requestAnimationFrame(() => {
+      const latestEvent = this.latestEvent;
+      if (latestEvent) {
+        this.processMouseMove(latestEvent);
+        this.latestEvent = null;
+      }
+    });
+  }
+
+  private processMouseMove(event: TerraDrawMouseEvent) {
     this.setCursor(this.cursors.draw);
 
     if (this.moveLineId && !this.store.has(this.moveLineId)) {
@@ -158,38 +173,47 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
       return;
     }
 
-    if (this.currentId) {
-      const currentLineGeometry = this.store.getGeometryCopy<LineString>(
-        this.currentId
-      );
+    const currentLineGeometryForCloseCheck = this.store.getGeometryCopy<LineString>(
+      this.currentId
+    );
 
-      // If the cursor is close the last line
-      // delete the current moving line and set the cursor to pointer
-      if (
-        this.measure(
-          event,
-          currentLineGeometry.coordinates[
-          currentLineGeometry.coordinates.length - 1
-          ]
-        ) < this.pointerDistance
-      ) {
-        this.setCursor(this.cursors.close);
-        if (this.moveLineId) {
-          this.store.delete([this.moveLineId]);
-          this.moveLineId = undefined;
-        }
+    if (!currentLineGeometryForCloseCheck) {
+      return;
+    }
 
+    // If the cursor is close the last line
+    // delete the current moving line and set the cursor to pointer
+    if (
+      this.measure(
+        event,
+        currentLineGeometryForCloseCheck.coordinates[
+        currentLineGeometryForCloseCheck.coordinates.length - 1
+        ]
+      ) < this.pointerDistance
+    ) {
+      this.setCursor(this.cursors.close);
+
+      if (!this.moveLineId) {
         return;
       }
+      if (this.store.has(this.moveLineId)) {
+        this.store.delete([this.moveLineId]);
+      }
+      this.moveLineId = undefined;
+      return;
     }
 
     const currentLineGeometry = this.store.getGeometryCopy<LineString>(
       this.currentId
     );
 
-    const eventCoord = [event.lng, event.lat];
+    if (!currentLineGeometry) {
+      return;
+    }
 
-    let closestPoint = this.routing.getClosestNetworkCoordinate(eventCoord);
+    const eventCoord = [event.lng, event.lat] as Position;
+
+    const closestPoint = this.routing.getClosestNetworkCoordinate(eventCoord);
 
     if (!closestPoint) {
       return;
