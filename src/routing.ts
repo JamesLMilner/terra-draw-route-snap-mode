@@ -11,6 +11,7 @@ import {
 export type RouteFinder = {
   getRoute: (positionA: Feature<Point>, positionB: Feature<Point>) => Feature<LineString> | null
   setNetwork: (network: FeatureCollection<LineString>) => void
+  expandNetwork: (additionalNetwork: FeatureCollection<LineString>) => void
 }
 
 export interface RoutingInterface {
@@ -33,8 +34,8 @@ export class Routing implements RoutingInterface {
     network: FeatureCollection<LineString>, useCache?: boolean,
     routeFinder: RouteFinder
   }) {
-    this.useCache = options.useCache || true;
-    this.network = options.network;
+    this.useCache = options.useCache !== undefined ? options.useCache : true;
+    this.network = this.clone(options.network);
     this.routeFinder = options.routeFinder;
 
     this.initialise();
@@ -96,12 +97,30 @@ export class Routing implements RoutingInterface {
    * @param network The network to use
    */
   public setNetwork(network: FeatureCollection<LineString>) {
-    this.network = network;
+    this.network = this.clone(network);
 
     // Ensure the network is updated correctly for the router finder
     this.routeFinder.setNetwork(network);
 
     // Re-initialize all internal data structures for this class
+    this.initialise();
+  }
+
+  public expandRouteNetwork(additionalNetwork: FeatureCollection<LineString>) {
+    const clonedNetwork = this.clone(additionalNetwork);
+
+    // Ensure the network is updated correctly for the router finder
+    this.routeFinder.expandNetwork(clonedNetwork);
+
+    const mergedNetwork = {
+      type: "FeatureCollection",
+      features: [...clonedNetwork.features, ...this.network.features]
+    } as FeatureCollection<LineString>;
+
+    this.network = mergedNetwork;
+
+    // Re-initialize all internal data structures for this class
+    // TODO: Is there a way to avoid re-initialising here?
     this.initialise();
   }
 
@@ -151,5 +170,9 @@ export class Routing implements RoutingInterface {
 
     return route;
 
+  }
+
+  private clone(network: FeatureCollection<LineString>) {
+    return JSON.parse(JSON.stringify(network)) as FeatureCollection<LineString>;
   }
 }

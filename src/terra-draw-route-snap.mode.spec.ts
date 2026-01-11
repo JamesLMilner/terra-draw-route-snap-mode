@@ -5,6 +5,7 @@ describe("TerraDrawRouteSnapMode", () => {
     const mockRouteFinder = {
         getRoute: jest.fn(),
         setNetwork: jest.fn(),
+        expandNetwork: jest.fn(),
     };
 
     it("should construct the class correctly", () => {

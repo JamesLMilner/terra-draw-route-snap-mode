@@ -6,6 +6,7 @@ import { RouteFinder } from "../../../src/routing";
 function withGeoJSONPathFinder(network: FeatureCollection<LineString>): RouteFinder {
 
   let pathFinder = new PathFinder(network);
+  const storedNetwork = network;
 
   const routeFinder = {
     getRoute: (start: Feature<Point>, end: Feature<Point>) => {
@@ -20,6 +21,11 @@ function withGeoJSONPathFinder(network: FeatureCollection<LineString>): RouteFin
     },
     setNetwork: (network: FeatureCollection<LineString>) => {
       pathFinder = new PathFinder(network);
+    },
+    expandNetwork: (additionalNetwork: FeatureCollection<LineString>) => {
+      // TODO: there may be a cleaner way to approach this
+      storedNetwork.features.push(...additionalNetwork.features);
+      pathFinder = new PathFinder(storedNetwork);
     }
   }
 
@@ -41,6 +47,9 @@ function withTerraRoute(network: FeatureCollection<LineString>): RouteFinder {
     getRoute: terraRoute.getRoute.bind(terraRoute),
     setNetwork: (network: FeatureCollection<LineString>) => {
       terraRoute.buildRouteGraph(network);
+    },
+    expandNetwork: (additionalNetwork: FeatureCollection<LineString>) => {
+      terraRoute.expandRouteGraph(additionalNetwork);
     }
   }
 }
