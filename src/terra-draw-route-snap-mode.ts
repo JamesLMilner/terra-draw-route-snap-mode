@@ -431,11 +431,12 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
 
   /** @internal */
   cleanUp() {
-    try {
-      if (this.currentId) {
-        this.store.delete([this.currentId, ...this.currentPointIds]);
-      }
-    } catch (error) { }
+    if (!this.store) {
+      return;
+    }
+    const present = [this.currentId, this.moveLineId, ...this.currentPointIds].filter(id => id && this.store.has(id)) as string[];
+
+    this.store.delete(present);
 
     this.currentId = undefined;
     this.moveLineId = undefined;
