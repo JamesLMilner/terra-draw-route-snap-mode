@@ -36,7 +36,7 @@ type RouteStyling = {
   routePointOutlineWidth: TerraDrawExtend.NumericStyling;
 };
 
-interface TerraDrawPolygonModeOptions<T extends TerraDrawExtend.CustomStyling>
+interface TerraDrawRouteSnapModeOptions<T extends TerraDrawExtend.CustomStyling>
   extends TerraDrawExtend.BaseModeOptions<T> {
   routing: RoutingInterface;
   pointerDistance?: number;
@@ -61,12 +61,12 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
   private currentPointIds: string[] = [];
   private routeId = 0;
 
-  constructor(options?: TerraDrawPolygonModeOptions<RouteStyling>) {
+  constructor(options?: TerraDrawRouteSnapModeOptions<RouteStyling>) {
     super(options, true);
     this.updateOptions(options);
   }
 
-  override updateOptions(options?: Partial<TerraDrawPolygonModeOptions<RouteStyling>>) {
+  override updateOptions(options?: Partial<TerraDrawRouteSnapModeOptions<RouteStyling>>) {
     super.updateOptions(options);
 
     if (options?.routing && options.routing !== this.routing) {

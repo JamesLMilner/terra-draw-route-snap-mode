@@ -50,7 +50,7 @@ export function setupDraw(map: L.Map, leaflet: typeof L, routing: Routing) {
             return colorStore[routeId] as `#${string}`;
           }
         }
-      }),
+      })
     ]
   });
 

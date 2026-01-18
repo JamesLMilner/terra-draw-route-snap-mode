@@ -3,5 +3,14 @@
     "compilerOptions": {
         "jsx": "react-jsx",
         "jsxImportSource": "preact",
+        "baseUrl": ".",
+        "paths": {
+            "terra-draw": [
+                "../node_modules/terra-draw"
+            ],
+            "terra-draw/*": [
+                "../node_modules/terra-draw/*"
+            ]
+        }
     }
 }
