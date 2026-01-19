@@ -98,11 +98,13 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     pointOne: { x: number; y: number },
     pointTwo: { x: number; y: number }
   ) => {
-    const { x: x1, y: y1 } = pointOne;
-    const { x: x2, y: y2 } = pointTwo;
-    const y = x2 - x1;
-    const x = y2 - y1;
-    return Math.sqrt(x * x + y * y);
+    const { x: xOne, y: yOne } = pointOne;
+    const { x: xTwo, y: yTwo } = pointTwo;
+
+    const deltaX = xTwo - xOne;
+    const deltaY = yTwo - yOne;
+
+    return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
   };
 
   private measure(clickEvent: TerraDrawMouseEvent, secondCoordinate: Position) {
@@ -379,11 +381,10 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
           },
         ]);
 
-        const pointId = this.createRoutePoint(closestPoint);
-
         if (this.maxPoints === this.currentCoordinate) {
           this.close();
         } else {
+          const pointId = this.createRoutePoint(closestPoint);
           this.currentCoordinate++;
           this.currentPointIds.push(pointId);
         }
@@ -425,7 +426,9 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
 
     this.currentId = undefined;
     this.moveLineId = undefined;
+    this.currentPointIds = [];
     this.currentCoordinate = 0;
+
     if (this.state === "drawing") {
       this.setStarted();
     }
@@ -451,7 +454,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       feature.properties.mode === this.mode
     ) {
       styles.pointColor = this.getHexColorStylingValue(this.styles.routePointColor, "#B90E0A", feature);
-      styles.pointOutlineColor = this.getHexColorStylingValue(this.styles.routePointColor, "#B90E0A", feature);
+      styles.pointOutlineColor = this.getHexColorStylingValue(this.styles.routePointOutlineColor, "#B90E0A", feature);
       styles.pointOutlineWidth = this.getNumericStylingValue(this.styles.routePointOutlineWidth, 1, feature);
 
       return styles;

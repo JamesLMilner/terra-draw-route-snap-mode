@@ -136,7 +136,8 @@ export class Routing implements RoutingInterface {
     if (this.useCache) {
       const routeKey = `${startCoord}-${endCoord}`;
 
-      if (this.routeCache[routeKey]) {
+      // Use 'in' to account for the route potentially being null
+      if (routeKey in this.routeCache) {
         return this.routeCache[routeKey];
       }
     }
