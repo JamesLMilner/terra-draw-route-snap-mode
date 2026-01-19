@@ -18,13 +18,6 @@ export function MockModeConfig() {
     };
 }
 
-export function MockRouteFinder() {
-    return {
-        getRoute: jest.fn(),
-        setNetwork: jest.fn(),
-        expandNetwork: jest.fn(),
-    };
-}
 
 export const MockCursorEvent = ({
     lng,

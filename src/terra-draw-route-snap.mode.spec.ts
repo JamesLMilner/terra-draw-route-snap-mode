@@ -1,7 +1,7 @@
 import { TerraRoute } from "terra-route";
 import { RouteFinder, Routing } from "./routing";
 import { TerraDrawRouteSnapMode } from "./terra-draw-route-snap-mode";
-import { CreateLineStringCollection, CreateThreePointNetwork, CreateTwoPointNetwork, MockCursorEvent, MockModeConfig, MockRouteFinder } from "./test/helpers";
+import { CreateLineStringCollection, CreateThreePointNetwork, CreateTwoPointNetwork, MockCursorEvent, MockModeConfig } from "./test/helpers";
 import { FeatureCollection, LineString } from "geojson";
 
 describe("TerraDrawRouteSnapMode", () => {
