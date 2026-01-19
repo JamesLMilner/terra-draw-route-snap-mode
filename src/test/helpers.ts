@@ -1,5 +1,5 @@
 import { Feature, FeatureCollection, LineString } from "geojson";
-import { TerraDrawExtend, TerraDrawMouseEvent } from "terra-draw";
+import { TerraDrawExtend, TerraDrawKeyboardEvent, TerraDrawMouseEvent } from "terra-draw";
 
 export function MockModeConfig() {
     return {
@@ -39,6 +39,19 @@ export const MockCursorEvent = ({
         heldKeys: [],
         isContextMenu: isContextMenu ? isContextMenu : false,
     }) as TerraDrawMouseEvent;
+
+export const MockKeyboardEvent = ({
+    key,
+    heldKeys,
+}: {
+    key: TerraDrawKeyboardEvent["key"];
+    heldKeys?: TerraDrawKeyboardEvent["heldKeys"];
+}) =>
+    ({
+        key,
+        heldKeys: heldKeys ?? [],
+        preventDefault: () => undefined,
+    }) as TerraDrawKeyboardEvent;
 
 
 export const CreateLineStringCollection = (lineStringCoordinates: LineString['coordinates'][]): FeatureCollection<LineString> => ({

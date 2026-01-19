@@ -61,14 +61,14 @@ export class KDBush {
 
         if (data) {
             this.data = data;
-            this.ids = new (this.IndexArrayType as any)(this.data, HEADER_SIZE, numItems);
-            this.coords = new (this.ArrayType as any)(this.data, HEADER_SIZE + idsByteSize + padCoords, numItems * 2);
+            this.ids = new this.IndexArrayType(this.data, HEADER_SIZE, numItems);
+            this.coords = new this.ArrayType(this.data, HEADER_SIZE + idsByteSize + padCoords, numItems * 2);
             this._pos = numItems * 2;
             this._finished = true;
         } else {
             this.data = new ArrayBuffer(HEADER_SIZE + coordsByteSize + idsByteSize + padCoords);
-            this.ids = new (this.IndexArrayType as any)(this.data, HEADER_SIZE, numItems);
-            this.coords = new (this.ArrayType as any)(this.data, HEADER_SIZE + idsByteSize + padCoords, numItems * 2);
+            this.ids = new this.IndexArrayType(this.data, HEADER_SIZE, numItems);
+            this.coords = new this.ArrayType(this.data, HEADER_SIZE + idsByteSize + padCoords, numItems * 2);
             this._pos = 0;
             this._finished = false;
 

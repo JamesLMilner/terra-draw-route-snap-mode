@@ -295,8 +295,7 @@ describe("Routing", () => {
             };
 
             const getRouteSpy = jest.spyOn(
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (routing as any).routeFinder,
+                mockRouteFinder,
                 "getRoute"
             );
 
@@ -338,8 +337,7 @@ describe("Routing", () => {
             };
 
             const expandSpy = jest.spyOn(
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (routing as any).routeFinder,
+                (routing as unknown as { routeFinder: typeof mockRouteFinder }).routeFinder,
                 "expandNetwork"
             );
             routing.expandRouteNetwork(additionalNetwork);

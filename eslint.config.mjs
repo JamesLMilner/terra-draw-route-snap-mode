@@ -46,17 +46,14 @@ export default [
             parser: tsParser,
         },
         rules: {
-            "@typescript-eslint/no-empty-function": "warn",
+            "@typescript-eslint/no-empty-function": [
+                "warn",
+                {
+                    allow: ["methods"],
+                },
+            ],
             "@typescript-eslint/no-explicit-any": "warn",
             "no-console": process.env.CI ? "error" : "warn",
-            rules: {
-                '@typescript-eslint/no-empty-function': [
-                    'warn',
-                    {
-                        allow: ['methods']
-                    }
-                ]
-            }
         },
     },
 ];

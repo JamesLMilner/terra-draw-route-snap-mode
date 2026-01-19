@@ -32,7 +32,7 @@ const mapOptions = {
   minZoom: 10,
   maxZoom: 20,
   tapTolerance: 10,
-  maxBounds: [[lat - 0.05, lng - 0.05], [lat + 0.05, lng + 0.05]] as any
+  maxBounds: [[lat - 0.05, lng - 0.05], [lat + 0.05, lng + 0.05]] as L.LatLngBoundsExpression
 };
 
 const Home = () => {

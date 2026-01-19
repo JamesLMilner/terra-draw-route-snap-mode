@@ -1,8 +1,9 @@
 import { TerraRoute } from "terra-route";
 import { RouteFinder, Routing } from "./routing";
 import { TerraDrawRouteSnapMode } from "./terra-draw-route-snap-mode";
-import { CreateLineStringCollection, CreateThreePointNetwork, CreateTwoPointNetwork, MockCursorEvent, MockModeConfig } from "./test/helpers";
+import { CreateLineStringCollection, CreateThreePointNetwork, CreateTwoPointNetwork, MockCursorEvent, MockKeyboardEvent, MockModeConfig } from "./test/helpers";
 import { FeatureCollection, LineString } from "geojson";
+import { GeoJSONStoreFeatures } from "terra-draw";
 
 describe("TerraDrawRouteSnapMode", () => {
 
@@ -338,9 +339,9 @@ describe("TerraDrawRouteSnapMode", () => {
     describe('onMouseMove', () => {
         beforeEach(() => {
             // Ensure requestAnimationFrame executes immediately in tests
-            (globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => {
+            globalThis.requestAnimationFrame = (cb: FrameRequestCallback): number => {
                 cb(0);
-                return 0 as any;
+                return 0;
             };
         });
 
@@ -411,7 +412,7 @@ describe("TerraDrawRouteSnapMode", () => {
             routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
             expect(config.store.copyAll()).toHaveLength(2);
 
-            routeSnapMode.onKeyUp({ key: 'Escape' } as any);
+            routeSnapMode.onKeyUp(MockKeyboardEvent({ key: 'Escape' }));
             expect(config.store.copyAll()).toHaveLength(0);
         });
 
@@ -428,7 +429,7 @@ describe("TerraDrawRouteSnapMode", () => {
             routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
             expect(config.store.copyAll()).toHaveLength(3);
 
-            routeSnapMode.onKeyUp({ key: 'Enter' } as any);
+            routeSnapMode.onKeyUp(MockKeyboardEvent({ key: 'Enter' }));
 
             const features = config.store.copyAll();
             // Finish should keep the route LineString but remove temporary route points.
@@ -448,8 +449,8 @@ describe("TerraDrawRouteSnapMode", () => {
             routeSnapMode.start();
 
             routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
-            routeSnapMode.onKeyUp({ key: 'Escape' } as any);
-            routeSnapMode.onKeyUp({ key: 'Enter' } as any);
+            routeSnapMode.onKeyUp(MockKeyboardEvent({ key: 'Escape' }));
+            routeSnapMode.onKeyUp(MockKeyboardEvent({ key: 'Enter' }));
 
             // With key bindings disabled, nothing should be cleaned up
             expect(config.store.copyAll()).toHaveLength(2);
@@ -500,7 +501,7 @@ describe("TerraDrawRouteSnapMode", () => {
             routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
             const [line] = config.store.copyAll();
 
-            const styles = routeSnapMode.styleFeature(line as any);
+            const styles = routeSnapMode.styleFeature(line as GeoJSONStoreFeatures);
             expect(styles.zIndex).toBe(10);
             expect(styles.lineStringWidth).toBeDefined();
             expect(styles.lineStringColor).toBeDefined();
@@ -518,7 +519,7 @@ describe("TerraDrawRouteSnapMode", () => {
             routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
             const [, point] = config.store.copyAll();
 
-            const styles = routeSnapMode.styleFeature(point as any);
+            const styles = routeSnapMode.styleFeature(point as GeoJSONStoreFeatures);
             expect(styles.pointColor).toBeDefined();
             expect(styles.pointOutlineColor).toBeDefined();
             expect(styles.pointOutlineWidth).toBeDefined();
@@ -536,7 +537,7 @@ describe("TerraDrawRouteSnapMode", () => {
                 properties: { mode: 'something-else' },
             };
 
-            const styles = routeSnapMode.styleFeature(nonRouteFeature as any);
+            const styles = routeSnapMode.styleFeature(nonRouteFeature as GeoJSONStoreFeatures);
             expect(styles).toBeDefined();
         });
     });
