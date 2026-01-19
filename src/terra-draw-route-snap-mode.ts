@@ -56,12 +56,16 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
   private keyEvents: TerraDrawRouteSnapModeKeyEvents = defaultKeyEvents;
   private cursors: Required<Cursors> = defaultCursors;
 
-  private maxPoints: number = 1
+  private maxPoints: number = 2
   private moveLineId: FeatureId | undefined;
   private routing!: RoutingInterface;
   private currentPointIds: FeatureId[] = [];
   private routeId = 0;
   private latestMouseMoveEvent: TerraDrawMouseEvent | null = null;
+
+  // We keep track of whether the current route incremented routeId so that we
+  // can roll it back on cancel/cleanup (so cancelled routes don't consume ids).
+  private didIncrementRouteIdForCurrentRoute = false;
 
   constructor(options?: TerraDrawRouteSnapModeOptions<RouteSnapStyling>) {
     super(options, true);
@@ -78,7 +82,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       this.routing = options.routing;
     }
 
-    if (options?.maxPoints !== undefined && options.maxPoints !== this.maxPoints && options.maxPoints > 0) {
+    if (options?.maxPoints !== undefined && options.maxPoints !== this.maxPoints && options.maxPoints >= 2) {
       this.maxPoints = options.maxPoints;
     }
 
@@ -132,6 +136,27 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     if (this.state === "drawing") {
       this.setStarted();
     }
+  }
+
+  private finish() {
+    if (!this.currentId) {
+      return;
+    }
+
+    // Route is now completed; don't allow cleanUp() to roll back the id.
+    this.didIncrementRouteIdForCurrentRoute = false;
+
+    // When finishing a route, we keep the route LineString but remove any temporary
+    // route points and preview (move) line segments.
+    const deletable = [this.moveLineId, ...this.currentPointIds].filter(
+      (id): id is FeatureId => Boolean(id) && this.store.has(id as FeatureId)
+    );
+
+    if (deletable.length) {
+      this.store.delete(deletable);
+    }
+
+    this.close();
   }
 
   private getFeatureProperties() {
@@ -279,15 +304,14 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       const canClose = this.measure(event, currentLastCoordinate) < this.pointerDistance;
 
       if (canClose) {
-        const deletable = this.currentPointIds.filter(id => this.store.has(id));
-        this.store.delete(deletable);
-
-        this.close();
-
+        this.finish();
         return;
       }
     } else {
+      // Only increment when we're about to start a new route. We roll this back
+      // if the user cancels the route via cleanUp.
       this.routeId++;
+      this.didIncrementRouteIdForCurrentRoute = true;
     }
 
     const closestPoint = this.routing.getClosestNetworkCoordinate(eventCoord);
@@ -340,18 +364,17 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
 
         this.currentCoordinate = 2;
         this.currentPointIds.push(pointId);
-      }
 
-      if (this.maxPoints === 1) {
-        this.close();
-
-        return;
+        // Handle the edge-case where maxPoints is 2.
+        if (this.currentCoordinate >= this.maxPoints) {
+          this.finish();
+        }
       }
     } else if (
       this.currentCoordinate > 1 &&
       this.currentId &&
       closestPoint &&
-      this.currentCoordinate <= this.maxPoints
+      this.currentCoordinate < this.maxPoints
     ) {
       const currentLineGeometry = this.store.getGeometryCopy<LineString>(
         this.currentId
@@ -370,7 +393,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
           ...currentLineGeometry,
           coordinates: [
             ...currentLineGeometry.coordinates,
-            ...linestringRoute.geometry.coordinates,
+            ...linestringRoute.geometry.coordinates.slice(1),
           ],
         };
 
@@ -381,12 +404,18 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
           },
         ]);
 
-        if (this.maxPoints === this.currentCoordinate) {
-          this.close();
+        // If adding another point would exceed maxPoints, finish immediately.
+        // At this stage we already have `currentCoordinate` route points.
+        if (this.currentCoordinate + 1 > this.maxPoints) {
+          this.finish();
         } else {
           const pointId = this.createRoutePoint(closestPoint);
           this.currentCoordinate++;
           this.currentPointIds.push(pointId);
+
+          if (this.currentCoordinate === this.maxPoints) {
+            this.finish();
+          }
         }
       }
     }
@@ -402,7 +431,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     }
 
     if (event.key === this.keyEvents.finish) {
-      this.close();
+      this.finish();
     }
   }
 
@@ -428,6 +457,13 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     this.moveLineId = undefined;
     this.currentPointIds = [];
     this.currentCoordinate = 0;
+
+    // If the current route was never finished and we incremented the routeId on
+    // start, roll it back so cancelled routes don't consume ids.
+    if (this.didIncrementRouteIdForCurrentRoute) {
+      this.routeId = Math.max(0, this.routeId - 1);
+      this.didIncrementRouteIdForCurrentRoute = false;
+    }
 
     if (this.state === "drawing") {
       this.setStarted();
