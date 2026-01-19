@@ -2,6 +2,7 @@ import { FeatureCollection, LineString, Position, Feature, Point } from "geojson
 export type RouteFinder = {
     getRoute: (positionA: Feature<Point>, positionB: Feature<Point>) => Feature<LineString> | null;
     setNetwork: (network: FeatureCollection<LineString>) => void;
+    expandNetwork: (additionalNetwork: FeatureCollection<LineString>) => void;
 };
 export interface RoutingInterface {
     getRoute: (startCoord: Position, endCoord: Position) => Feature<LineString> | null;
@@ -43,6 +44,7 @@ export declare class Routing implements RoutingInterface {
      * @param network The network to use
      */
     setNetwork(network: FeatureCollection<LineString>): void;
+    expandRouteNetwork(additionalNetwork: FeatureCollection<LineString>): void;
     /**
      * Get the route between two coordinates returned as a GeoJSON LineString
      * @param startCoord start coordinate
@@ -50,4 +52,5 @@ export declare class Routing implements RoutingInterface {
      * @returns The route as a GeoJSON LineString
      */
     getRoute(startCoord: Position, endCoord: Position): Feature<LineString> | null;
+    private clone;
 }

@@ -1,7 +1,7 @@
 import { TerraDrawAdapterStyling, TerraDrawKeyboardEvent, TerraDrawMouseEvent, BehaviorConfig, GeoJSONStoreFeatures, TerraDrawExtend } from "terra-draw";
 import { Validation } from "terra-draw/dist/common";
 import { RoutingInterface } from "./routing";
-type TerraDrawLineStringModeKeyEvents = {
+type TerraDrawRouteSnapModeKeyEvents = {
     cancel: KeyboardEvent["key"] | null;
     finish: KeyboardEvent["key"] | null;
 };
@@ -9,7 +9,7 @@ interface Cursors {
     draw?: TerraDrawExtend.Cursor;
     close?: TerraDrawExtend.Cursor;
 }
-type RouteStyling = {
+type RouteSnapStyling = {
     lineStringWidth: TerraDrawExtend.NumericStyling;
     lineStringColor: TerraDrawExtend.HexColorStyling;
     routePointColor: TerraDrawExtend.HexColorStyling;
@@ -17,15 +17,15 @@ type RouteStyling = {
     routePointOutlineColor: TerraDrawExtend.HexColorStyling;
     routePointOutlineWidth: TerraDrawExtend.NumericStyling;
 };
-interface TerraDrawPolygonModeOptions<T extends TerraDrawExtend.CustomStyling> extends TerraDrawExtend.BaseModeOptions<T> {
+interface TerraDrawRouteSnapModeOptions<T extends TerraDrawExtend.CustomStyling> extends TerraDrawExtend.BaseModeOptions<T> {
     routing: RoutingInterface;
     pointerDistance?: number;
-    keyEvents?: TerraDrawLineStringModeKeyEvents | null;
+    keyEvents?: TerraDrawRouteSnapModeKeyEvents | null;
     maxPoints?: number;
     cursors?: Partial<Cursors>;
 }
 declare const TerraDrawBaseDrawMode: typeof TerraDrawExtend.TerraDrawBaseDrawMode;
-export declare class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
+export declare class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyling> {
     mode: "routesnap";
     private currentCoordinate;
     private currentId;
@@ -36,21 +36,25 @@ export declare class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteS
     private routing;
     private currentPointIds;
     private routeId;
-    constructor(options?: TerraDrawPolygonModeOptions<RouteStyling>);
-    updateOptions(options?: Partial<TerraDrawPolygonModeOptions<RouteStyling>>): void;
+    private latestMouseMoveEvent;
+    private didIncrementRouteIdForCurrentRoute;
+    constructor(options?: TerraDrawRouteSnapModeOptions<RouteSnapStyling>);
+    updateOptions(options?: Partial<TerraDrawRouteSnapModeOptions<RouteSnapStyling>>): void;
     private pixelDistance;
     private measure;
     private close;
+    private finish;
+    private getFeatureProperties;
+    private createRoutePoint;
+    private processCursorMove;
     /** @internal */
     registerBehaviors(config: BehaviorConfig): void;
     /** @internal */
     start(): void;
     /** @internal */
     stop(): void;
-    private latestEvent;
     /** @internal */
     onMouseMove(event: TerraDrawMouseEvent): void;
-    private processMouseMove;
     /** @internal */
     onClick(event: TerraDrawMouseEvent): void;
     /** @internal */
