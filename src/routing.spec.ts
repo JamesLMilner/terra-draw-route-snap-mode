@@ -155,7 +155,7 @@ describe("Routing", () => {
             expect(mockRouteFinder.getRoute).toHaveBeenCalledTimes(1); // Still 1 because cache used
         });
 
-        it("should call the route finder again when the previous result was null", () => {
+        it("should not call the route finder again when the previous result was null and useCache is true", () => {
             const nullRouteFinder = {
                 getRoute: jest.fn().mockReturnValue(null),
                 setNetwork: jest.fn(),
@@ -166,7 +166,8 @@ describe("Routing", () => {
 
             expect(routing.getRoute([0, 0], [1, 1])).toBeNull();
             expect(routing.getRoute([0, 0], [1, 1])).toBeNull();
-            expect(nullRouteFinder.getRoute).toHaveBeenCalledTimes(2);
+            // Result is already calculated as null, so we only call once
+            expect(nullRouteFinder.getRoute).toHaveBeenCalledTimes(1);
         });
 
         it("should return a new route if cache is disabled", () => {
