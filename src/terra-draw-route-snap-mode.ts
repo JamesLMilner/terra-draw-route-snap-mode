@@ -156,13 +156,13 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
     requestAnimationFrame(() => {
       const latestEvent = this.latestEvent;
       if (latestEvent) {
-        this.processMouseMove(latestEvent);
+        this.processCursorMove(latestEvent);
         this.latestEvent = null;
       }
     });
   }
 
-  private processMouseMove(event: TerraDrawMouseEvent) {
+  private processCursorMove(event: TerraDrawMouseEvent) {
     this.setCursor(this.cursors.draw);
 
     if (this.moveLineId && !this.store.has(this.moveLineId)) {
@@ -170,36 +170,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
     }
 
     if (!this.currentId || this.currentCoordinate === 0) {
-      return;
-    }
-
-    const currentLineGeometryForCloseCheck = this.store.getGeometryCopy<LineString>(
-      this.currentId
-    );
-
-    if (!currentLineGeometryForCloseCheck) {
-      return;
-    }
-
-    // If the cursor is close the last line
-    // delete the current moving line and set the cursor to pointer
-    if (
-      this.measure(
-        event,
-        currentLineGeometryForCloseCheck.coordinates[
-        currentLineGeometryForCloseCheck.coordinates.length - 1
-        ]
-      ) < this.pointerDistance
-    ) {
-      this.setCursor(this.cursors.close);
-
-      if (!this.moveLineId) {
-        return;
-      }
-      if (this.store.has(this.moveLineId)) {
-        this.store.delete([this.moveLineId]);
-      }
-      this.moveLineId = undefined;
       return;
     }
 
@@ -211,29 +181,49 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
       return;
     }
 
-    const eventCoord = [event.lng, event.lat] as Position;
+    const currentCoordinates = currentLineGeometry.coordinates;
+    const currentLength = currentCoordinates.length - 1;
+    const currentLastCoordinate = currentCoordinates[currentLength];
+    const canClose = this.measure(event, currentLastCoordinate) < this.pointerDistance;
 
-    const closestPoint = this.routing.getClosestNetworkCoordinate(eventCoord);
+    // If the cursor is close to the last line closing coordinate
+    // delete the current moving line and set the cursor to pointer
+    if (canClose) {
+      this.setCursor(this.cursors.close);
 
-    if (!closestPoint) {
+      if (!this.moveLineId) {
+        return;
+      }
+
+      if (this.store.has(this.moveLineId)) {
+        this.store.delete([this.moveLineId]);
+      }
+
+      this.moveLineId = undefined;
       return;
     }
 
-    const length = currentLineGeometry.coordinates.length - 1;
+    const eventCoord: Position = [event.lng, event.lat];
 
-    const geojsonRoute = this.routing.getRoute(
-      currentLineGeometry.coordinates[length],
-      closestPoint
+    const closestNetworkCoordinate = this.routing.getClosestNetworkCoordinate(eventCoord);
+
+    if (!closestNetworkCoordinate) {
+      return;
+    }
+
+    const linestringRoute = this.routing.getRoute(
+      currentLineGeometry.coordinates[currentLength],
+      closestNetworkCoordinate
     );
 
-    if (!geojsonRoute) {
+    if (!linestringRoute) {
       return;
     }
 
     if (!this.moveLineId) {
       const [createdId] = this.store.create([
         {
-          geometry: geojsonRoute.geometry,
+          geometry: linestringRoute.geometry,
           properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
         },
       ]);
@@ -243,7 +233,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
       this.store.updateGeometry([
         {
           id: this.moveLineId,
-          geometry: geojsonRoute.geometry,
+          geometry: linestringRoute.geometry,
         },
       ]);
     }
