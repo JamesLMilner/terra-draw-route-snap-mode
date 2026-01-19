@@ -10,7 +10,7 @@ import { LineString, Position } from "geojson";
 import { Validation } from "terra-draw/dist/common";
 import { RoutingInterface } from "./routing";
 
-type TerraDrawLineStringModeKeyEvents = {
+type TerraDrawRouteSnapModeKeyEvents = {
   cancel: KeyboardEvent["key"] | null;
   finish: KeyboardEvent["key"] | null;
 };
@@ -27,7 +27,7 @@ const defaultCursors = {
   close: "pointer"
 } as Required<Cursors>;
 
-type RouteStyling = {
+type RouteSnapStyling = {
   lineStringWidth: TerraDrawExtend.NumericStyling;
   lineStringColor: TerraDrawExtend.HexColorStyling
   routePointColor: TerraDrawExtend.HexColorStyling;
@@ -40,19 +40,19 @@ interface TerraDrawRouteSnapModeOptions<T extends TerraDrawExtend.CustomStyling>
   extends TerraDrawExtend.BaseModeOptions<T> {
   routing: RoutingInterface;
   pointerDistance?: number;
-  keyEvents?: TerraDrawLineStringModeKeyEvents | null;
+  keyEvents?: TerraDrawRouteSnapModeKeyEvents | null;
   maxPoints?: number;
   cursors?: Partial<Cursors>;
 }
 
 const { TerraDrawBaseDrawMode } = TerraDrawExtend;
 
-export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> {
+export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyling> {
   mode = "routesnap" as const;
 
   private currentCoordinate = 0;
   private currentId: string | undefined;
-  private keyEvents: TerraDrawLineStringModeKeyEvents = defaultKeyEvents;
+  private keyEvents: TerraDrawRouteSnapModeKeyEvents = defaultKeyEvents;
   private cursors: Required<Cursors> = defaultCursors;
 
   private maxPoints: number = 1
@@ -61,12 +61,12 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
   private currentPointIds: string[] = [];
   private routeId = 0;
 
-  constructor(options?: TerraDrawRouteSnapModeOptions<RouteStyling>) {
+  constructor(options?: TerraDrawRouteSnapModeOptions<RouteSnapStyling>) {
     super(options, true);
     this.updateOptions(options);
   }
 
-  override updateOptions(options?: Partial<TerraDrawRouteSnapModeOptions<RouteStyling>>) {
+  override updateOptions(options?: Partial<TerraDrawRouteSnapModeOptions<RouteSnapStyling>>) {
     super.updateOptions(options);
 
     if (options?.routing && options.routing !== this.routing) {
@@ -211,10 +211,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteStyling> 
       return;
     }
 
-    const linestringRoute = this.routing.getRoute(
-      currentLineGeometry.coordinates[currentLength],
-      closestNetworkCoordinate
-    );
+    const linestringRoute = this.routing.getRoute(currentLastCoordinate, closestNetworkCoordinate);
 
     if (!linestringRoute) {
       return;
