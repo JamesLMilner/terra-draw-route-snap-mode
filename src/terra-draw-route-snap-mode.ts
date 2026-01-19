@@ -9,6 +9,7 @@ import {
 import { LineString, Position } from "geojson";
 import { Validation } from "terra-draw/dist/common";
 import { RoutingInterface } from "./routing";
+import { FeatureId } from "terra-draw/dist/extend";
 
 type TerraDrawRouteSnapModeKeyEvents = {
   cancel: KeyboardEvent["key"] | null;
@@ -51,15 +52,16 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
   mode = "routesnap" as const;
 
   private currentCoordinate = 0;
-  private currentId: string | undefined;
+  private currentId: FeatureId | undefined;
   private keyEvents: TerraDrawRouteSnapModeKeyEvents = defaultKeyEvents;
   private cursors: Required<Cursors> = defaultCursors;
 
   private maxPoints: number = 1
-  private moveLineId: string | undefined;
+  private moveLineId: FeatureId | undefined;
   private routing!: RoutingInterface;
-  private currentPointIds: string[] = [];
+  private currentPointIds: FeatureId[] = [];
   private routeId = 0;
+  private latestMouseMoveEvent: TerraDrawMouseEvent | null = null;
 
   constructor(options?: TerraDrawRouteSnapModeOptions<RouteSnapStyling>) {
     super(options, true);
@@ -130,36 +132,22 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     }
   }
 
-  /** @internal */
-  registerBehaviors(config: BehaviorConfig) { }
-
-  /** @internal */
-  start() {
-    this.setStarted();
-    this.setCursor(this.cursors.draw);
+  private getFeatureProperties() {
+    return { mode: this.mode, isDrawnRoute: true, routeId: this.routeId }
   }
 
-  /** @internal */
-  stop() {
-    this.cleanUp();
-    this.setStopped();
-    this.setCursor("unset");
-  }
+  private createRoutePoint(position: Position) {
+    const [createdId] = this.store.create([
+      {
+        geometry: {
+          type: "Point",
+          coordinates: position,
+        },
+        properties: this.getFeatureProperties(),
+      },
+    ]);
 
-
-  private latestEvent: TerraDrawMouseEvent | null = null;
-
-  /** @internal */
-  onMouseMove(event: TerraDrawMouseEvent) {
-    this.latestEvent = event;
-
-    requestAnimationFrame(() => {
-      const latestEvent = this.latestEvent;
-      if (latestEvent) {
-        this.processCursorMove(latestEvent);
-        this.latestEvent = null;
-      }
-    });
+    return createdId;
   }
 
   private processCursorMove(event: TerraDrawMouseEvent) {
@@ -221,11 +209,11 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       const [createdId] = this.store.create([
         {
           geometry: linestringRoute.geometry,
-          properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
+          properties: this.getFeatureProperties(),
         },
       ]);
 
-      this.moveLineId = createdId as string;
+      this.moveLineId = createdId;
     } else {
       this.store.updateGeometry([
         {
@@ -234,6 +222,35 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
         },
       ]);
     }
+  }
+
+  /** @internal */
+  registerBehaviors(config: BehaviorConfig) { }
+
+  /** @internal */
+  start() {
+    this.setStarted();
+    this.setCursor(this.cursors.draw);
+  }
+
+  /** @internal */
+  stop() {
+    this.cleanUp();
+    this.setStopped();
+    this.setCursor("unset");
+  }
+
+  /** @internal */
+  onMouseMove(event: TerraDrawMouseEvent) {
+    this.latestMouseMoveEvent = event;
+
+    requestAnimationFrame(() => {
+      const latestEvent = this.latestMouseMoveEvent;
+      if (latestEvent) {
+        this.processCursorMove(latestEvent);
+        this.latestMouseMoveEvent = null;
+      }
+    });
   }
 
   /** @internal */
@@ -255,17 +272,13 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
         this.currentId
       );
 
-      if (
-        this.measure(
-          event,
-          currentLineGeometry.coordinates[
-          currentLineGeometry.coordinates.length - 1
-          ]
-        ) < this.pointerDistance
-      ) {
-        if (this.currentCoordinate === 1) {
-          this.store.delete(this.currentPointIds);
-        }
+      const currentCoordinates = currentLineGeometry.coordinates;
+      const currentLastCoordinate = currentCoordinates[currentCoordinates.length - 1];
+      const canClose = this.measure(event, currentLastCoordinate) < this.pointerDistance;
+
+      if (canClose) {
+        const deletable = this.currentPointIds.filter(id => this.store.has(id));
+        this.store.delete(deletable);
 
         this.close();
 
@@ -275,64 +288,56 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       this.routeId++;
     }
 
-    let closestPoint = this.routing.getClosestNetworkCoordinate(eventCoord);
+    const closestPoint = this.routing.getClosestNetworkCoordinate(eventCoord);
 
-    if (this.currentCoordinate === 0) {
-      if (closestPoint) {
-        const [createdId, pointId] = this.store.create([
-          {
-            geometry: {
-              type: "LineString",
-              coordinates: [closestPoint],
-            },
-            properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
+    if (this.currentCoordinate === 0 && closestPoint) {
+      const [createdId, pointId] = this.store.create([
+        {
+          geometry: {
+            type: "LineString",
+            coordinates: [closestPoint],
           },
-          {
-            geometry: {
-              type: "Point",
-              coordinates: closestPoint,
-            },
-            properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
+          properties: this.getFeatureProperties(),
+        },
+        {
+          geometry: {
+            type: "Point",
+            coordinates: closestPoint,
           },
-        ]);
+          properties: this.getFeatureProperties(),
+        },
+      ]);
 
-        this.currentId = createdId as string;
-        this.currentPointIds.push(pointId as string);
-        this.currentCoordinate++;
+      this.currentId = createdId;
+      this.currentPointIds.push(pointId);
+      this.currentCoordinate++;
 
-        if (this.state === "started") {
-          this.setDrawing();
-        }
+      if (this.state === "started") {
+        this.setDrawing();
       }
     } else if (this.currentCoordinate === 1 && this.currentId && closestPoint) {
       const currentLineGeometry = this.store.getGeometryCopy<LineString>(
         this.currentId
       );
+      const firstCoordinate = currentLineGeometry.coordinates[0];
 
-      const geojsonRoute = this.routing.getRoute(
-        currentLineGeometry.coordinates[0],
+      const linestringRoute = this.routing.getRoute(
+        firstCoordinate,
         closestPoint
       );
-      if (geojsonRoute) {
+
+      if (linestringRoute) {
         this.store.updateGeometry([
           {
             id: this.currentId,
-            geometry: geojsonRoute?.geometry,
+            geometry: linestringRoute?.geometry,
           },
         ]);
 
-        const [pointId] = this.store.create([
-          {
-            geometry: {
-              type: "Point",
-              coordinates: closestPoint,
-            },
-            properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
-          },
-        ]);
+        const pointId = this.createRoutePoint(closestPoint)
 
         this.currentCoordinate = 2;
-        this.currentPointIds.push(pointId as string);
+        this.currentPointIds.push(pointId);
       }
 
       if (this.maxPoints === 1) {
@@ -350,19 +355,20 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
         this.currentId
       );
 
-      const length = currentLineGeometry.coordinates.length - 1;
+      const currentLength = currentLineGeometry.coordinates.length - 1;
+      const currentLastCoordinate = currentLineGeometry.coordinates[currentLength];
 
-      const geojsonRoute = this.routing.getRoute(
-        currentLineGeometry.coordinates[length],
+      const linestringRoute = this.routing.getRoute(
+        currentLastCoordinate,
         closestPoint
       );
 
-      if (geojsonRoute) {
+      if (linestringRoute) {
         const newGeometry = {
           ...currentLineGeometry,
           coordinates: [
             ...currentLineGeometry.coordinates,
-            ...geojsonRoute.geometry.coordinates,
+            ...linestringRoute.geometry.coordinates,
           ],
         };
 
@@ -373,21 +379,13 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
           },
         ]);
 
-        const [pointId] = this.store.create([
-          {
-            geometry: {
-              type: "Point",
-              coordinates: closestPoint,
-            },
-            properties: { mode: this.mode, isDrawnRoute: true, routeId: this.routeId },
-          },
-        ]);
+        const pointId = this.createRoutePoint(closestPoint);
 
         if (this.maxPoints === this.currentCoordinate) {
           this.close();
         } else {
           this.currentCoordinate++;
-          this.currentPointIds.push(pointId as string);
+          this.currentPointIds.push(pointId);
         }
       }
     }
