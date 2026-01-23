@@ -30,6 +30,13 @@ describe("TerraDrawRouteSnapMode", () => {
 
     beforeEach(() => {
         config = MockModeConfig();
+
+        // The mode uses requestAnimationFrame for mouse move throttling. Jest's
+        // default environment in this repo doesn't provide it.
+        (globalThis as typeof globalThis & { requestAnimationFrame: (cb: FrameRequestCallback) => number }).requestAnimationFrame = (cb) => {
+            cb(0);
+            return 0;
+        };
     })
 
     describe('constructor', () => {
@@ -54,6 +61,75 @@ describe("TerraDrawRouteSnapMode", () => {
 
             expect(routeSnapMode).toBeDefined();
         });
+    });
+
+    it("should allow fallbackToStraightLine to be enabled/disabled with boolean and reset defaults when true", () => {
+        const getRouteMock = jest.fn(() => null);
+
+        const routing = {
+            getClosestNetworkCoordinate: jest.fn(() => [0, 0]),
+            getRoute: getRouteMock,
+        } as unknown as Routing;
+
+        const mode = new TerraDrawRouteSnapMode({
+            routing,
+            pointerDistance: 5,
+            fallbackToStraightLine: true,
+        });
+
+        mode.register(config);
+        mode.start();
+
+        // First click starts a route.
+        mode.onClick(MockCursorEvent({ lng: 0, lat: 0 }));
+
+        // With fallback enabled via `true`, defaults should apply
+        // (closerByTolerancePx=0), so routing is attempted on mouse move.
+        mode.onMouseMove(MockCursorEvent({ lng: 10, lat: 10 }));
+        expect(getRouteMock).toHaveBeenCalled();
+
+        // Now disable fallback.
+        getRouteMock.mockClear();
+        mode.updateOptions({ fallbackToStraightLine: false });
+
+        // Gating is disabled when fallback is off, so routing is still attempted.
+        mode.onMouseMove(MockCursorEvent({ lng: 12, lat: 12 }));
+        expect(getRouteMock).toHaveBeenCalled();
+    });
+
+    it("should reset fallback tuning values back to defaults after disabling", () => {
+        const getRouteMock = jest.fn(() => null);
+
+        const routing = {
+            getClosestNetworkCoordinate: jest.fn(() => [0, 0]),
+            getRoute: getRouteMock,
+        } as unknown as Routing;
+
+        const mode = new TerraDrawRouteSnapMode({
+            routing,
+            pointerDistance: 5,
+            // Enable with a custom tolerance that could block snap attempts.
+            fallbackToStraightLine: { closerByTolerancePx: 9999, forceSnapWithinPx: 0 },
+        });
+
+        mode.register(config);
+        mode.start();
+        mode.onClick(MockCursorEvent({ lng: 0, lat: 0 }));
+
+        // With huge tolerance, routing may be skipped (allowSnapToNetworkCoordinate can
+        // be false), so we don't assert here.
+        mode.onMouseMove(MockCursorEvent({ lng: 10, lat: 10 }));
+
+        // Disable should reset tuning values.
+        mode.updateOptions({ fallbackToStraightLine: false });
+
+        // Re-enable with `true` should use defaults (closerByTolerancePx=0), meaning
+        // routing is attempted on mouse move.
+        getRouteMock.mockClear();
+        mode.updateOptions({ fallbackToStraightLine: true });
+
+        mode.onMouseMove(MockCursorEvent({ lng: 12, lat: 12 }));
+        expect(getRouteMock).toHaveBeenCalled();
     });
 
     describe('start', () => {
@@ -162,6 +238,46 @@ describe("TerraDrawRouteSnapMode", () => {
 
             expect(routing.getRoute).toHaveBeenCalledTimes(1);
         })
+
+        it('should fall back to a straight line on second click when no route is found and fallbackToStraightLine is enabled', () => {
+            const routing = createRouting(CreateTwoPointNetwork());
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing,
+                maxPoints: 5,
+                fallbackToStraightLine: {
+                    closerByTolerancePx: 1_000_000,
+                },
+            });
+
+            jest.spyOn(routing, 'getRoute').mockReturnValue(null);
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+            const features = config.store.copyAll();
+            const lineStrings = features.filter(
+                (f): f is GeoJSONStoreFeatures & { geometry: LineString } =>
+                    f.type === "Feature" && f.geometry.type === "LineString"
+            );
+            const points = features.filter(
+                (f): f is GeoJSONStoreFeatures & { geometry: { type: "Point"; coordinates: [number, number] } } =>
+                    f.type === "Feature" && f.geometry.type === "Point"
+            );
+
+            expect(lineStrings).toHaveLength(1);
+            const [linestring] = lineStrings;
+
+            expect(linestring.geometry).toEqual({
+                type: "LineString",
+                coordinates: [[1, 2], [3, 4]]
+            });
+
+            // Should include the two anchor points plus intermediate rendered points.
+            expect(points.length).toBeGreaterThan(2);
+        });
 
         it('should draw a route linestring on second click with the the closest network coordinate', () => {
             const routing = createRouting(CreateTwoPointNetwork());
@@ -333,6 +449,82 @@ describe("TerraDrawRouteSnapMode", () => {
             // Fails currently: routeId increments when starting a route,
             // so cancelled routes consume routeIds.
             expect(line.properties.routeId).toBe(1);
+        });
+    });
+
+    describe('onMouseMove', () => {
+        it('should preview a straight line when no route is found and fallbackToStraightLine is enabled', () => {
+            const routing = createRouting(CreateTwoPointNetwork());
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing,
+                maxPoints: 5,
+                fallbackToStraightLine: {},
+            });
+
+            jest.spyOn(routing, 'getRoute').mockReturnValue(null);
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            // First click starts the route
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+
+            // Move close enough that it should snap to the network coordinate, but route is null
+            routeSnapMode.onMouseMove(MockCursorEvent({ lng: 3, lat: 4 }));
+
+            const features = config.store.copyAll();
+
+            // Preview should not create additional point features (points only appear on click).
+            const points = features.filter(
+                (f): f is GeoJSONStoreFeatures & { geometry: { type: "Point" } } =>
+                    f.type === "Feature" && f.geometry.type === "Point"
+            );
+            expect(points).toHaveLength(1);
+
+            const lineStrings = features.filter(
+                (f): f is GeoJSONStoreFeatures & { geometry: LineString } =>
+                    f.type === "Feature" && f.geometry.type === "LineString"
+            );
+
+            // At least one 2-point preview segment should exist.
+            expect(lineStrings.some(ls => ls.geometry.coordinates.length === 2)).toBe(true);
+        });
+
+        it('should not snap to a network coordinate for straight-line preview unless it is sufficiently closer than the start', () => {
+            const routing = createRouting(CreateTwoPointNetwork());
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing,
+                maxPoints: 5,
+                fallbackToStraightLine: {
+                    // require an unrealistically large delta so snapping never triggers
+                    closerByTolerancePx: 1_000_000,
+                },
+            });
+
+            jest.spyOn(routing, 'getRoute').mockReturnValue(null);
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            // First click starts the route
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+
+            routeSnapMode.onMouseMove(MockCursorEvent({ lng: 3, lat: 4 }));
+
+            const features = config.store.copyAll();
+
+            // Should include a straight-line preview but not a routed preview.
+            const lineStrings = features.filter(
+                (f): f is GeoJSONStoreFeatures & { geometry: LineString } =>
+                    f.type === "Feature" && f.geometry.type === "LineString"
+            );
+            expect(lineStrings).toHaveLength(2);
+
+            const points = features.filter(
+                (f): f is GeoJSONStoreFeatures & { geometry: { type: "Point" } } =>
+                    f.type === "Feature" && f.geometry.type === "Point"
+            );
+            expect(points).toHaveLength(1);
         });
     });
 
