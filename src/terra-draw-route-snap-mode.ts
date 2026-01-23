@@ -96,11 +96,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
   private closerByTolerancePx = 0;
   private forceSnapWithinPx = 5;
 
-  private resetFallbackToStraightLineDefaults() {
-    this.closerByTolerancePx = 0;
-    this.forceSnapWithinPx = 5;
-  }
-
   // We keep track of whether the current route incremented routeId so that we
   // can roll it back on cancel/cleanup (so cancelled routes don't consume ids).
   private didIncrementRouteIdForCurrentRoute = false;
@@ -144,10 +139,12 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       // - { ... }: enable and override any provided tuning values
       if (cfg === false) {
         this.fallbackToStraightLine = false;
-        this.resetFallbackToStraightLineDefaults();
+        this.closerByTolerancePx = 0;
+        this.forceSnapWithinPx = 5;
       } else if (cfg === true) {
         this.fallbackToStraightLine = true;
-        this.resetFallbackToStraightLineDefaults();
+        this.closerByTolerancePx = 0;
+        this.forceSnapWithinPx = 5;
       } else if (cfg && typeof cfg === "object") {
         this.fallbackToStraightLine = true;
 
@@ -162,7 +159,8 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       } else {
         // null/undefined: disable (undefined is handled by outer condition)
         this.fallbackToStraightLine = false;
-        this.resetFallbackToStraightLineDefaults();
+        this.closerByTolerancePx = 0;
+        this.forceSnapWithinPx = 5;
       }
     }
   }
@@ -284,43 +282,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     return createdId;
   }
 
-  private syncIntermediateRoutePoints(coordinates: Position[]) {
-    // Remove any previously created intermediate points (keep only the
-    // "anchor" route points created on click).
-    if (this.currentPointIds.length > this.currentCoordinate) {
-      const intermediateIds = this.currentPointIds.slice(this.currentCoordinate);
-      const deletable = intermediateIds.filter((id) => this.store.has(id));
-      if (deletable.length) {
-        this.store.delete(deletable);
-      }
-      this.currentPointIds = this.currentPointIds.slice(0, this.currentCoordinate);
-    }
-
-    // Add points for any extra rendered coordinates beyond the anchor points.
-    // We exclude the first coordinate because it's already represented by an
-    // anchor point (last clicked point) for the current segment.
-    for (let i = 1; i < coordinates.length; i++) {
-      const id = this.createRoutePoint(coordinates[i]);
-      this.currentPointIds.push(id);
-    }
-  }
-
-  private clearIntermediateRoutePoints() {
-    // Keep only the anchor points (created on click). Anything beyond
-    // `currentCoordinate` is considered an intermediate rendered point.
-    if (this.currentPointIds.length <= this.currentCoordinate) {
-      return;
-    }
-
-    const intermediateIds = this.currentPointIds.slice(this.currentCoordinate);
-    const deletable = intermediateIds.filter((id) => this.store.has(id));
-    if (deletable.length) {
-      this.store.delete(deletable);
-    }
-
-    this.currentPointIds = this.currentPointIds.slice(0, this.currentCoordinate);
-  }
-
   private processCursorMove(event: TerraDrawMouseEvent) {
     this.setCursor(this.cursors.draw);
 
@@ -360,9 +321,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
 
       this.moveLineId = undefined;
 
-      // If we were previewing a straight line, ensure its intermediate points
-      // are removed when the user moves into the close/finish state.
-      this.clearIntermediateRoutePoints();
       return;
     }
 
@@ -374,60 +332,23 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       return;
     }
 
-    // When straight-line fallback is enabled, optionally require the target
-    // network coordinate to be *meaningfully* closer than the straight-line
-    // start before we attempt to snap/rout to it.
-    //
-    // If this condition isn't met, we still allow straight-line preview; we
-    // just skip routing/snapped preview for this mouse move.
     const allowSnapToNetworkCoordinate = this.shouldAllowSnapToNetworkCoordinate(
       event,
       currentLastCoordinate,
       closestNetworkCoordinate
     );
 
-    const linestringRoute = allowSnapToNetworkCoordinate
+    let linestringRoute = allowSnapToNetworkCoordinate
       ? this.routing.getRoute(currentLastCoordinate, closestNetworkCoordinate)
       : null;
 
     if (!linestringRoute && this.fallbackToStraightLine) {
-      // Preview segment falls back to a straight line
-      const straightLine = this.createStraightLineRoute(currentLastCoordinate, eventCoord);
-
-      // Important: do not create point features on mouse move. Snapped routes
-      // only create points on click, so straight-line fallback should match.
-      this.clearIntermediateRoutePoints();
-
-      if (!this.moveLineId) {
-        const [createdId] = this.store.create([
-          {
-            geometry: straightLine.geometry,
-            properties: this.getFeatureProperties(),
-          },
-        ]);
-
-        this.moveLineId = createdId;
-      } else {
-        this.store.updateGeometry([
-          {
-            id: this.moveLineId,
-            geometry: straightLine.geometry,
-          },
-        ]);
-      }
-
-      return;
+      linestringRoute = this.createStraightLineRoute(currentLastCoordinate, eventCoord);
     }
 
     if (!linestringRoute) {
-      // No preview segment - clear any intermediate points from prior fallback.
-      this.clearIntermediateRoutePoints();
       return;
     }
-
-    // We have a routed preview segment; clear any intermediate points from a
-    // prior straight-line fallback preview.
-    this.clearIntermediateRoutePoints();
 
     if (!this.moveLineId) {
       const [createdId] = this.store.create([
@@ -559,10 +480,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
           ? linestringRoute
           : this.createStraightLineRoute(firstCoordinate, eventCoord);
 
-        if (!linestringRoute && this.fallbackToStraightLine) {
-          this.syncIntermediateRoutePoints(usedRoute.geometry.coordinates);
-        }
-
         this.store.updateGeometry([
           {
             id: this.currentId,
@@ -570,10 +487,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
           },
         ]);
 
-        // If we fell back to a straight line, the committed segment ends at the
-        // raw click location (eventCoord), not the snapped network coordinate.
-        // Creating a point at the snapped coord would be misleading and tends
-        // to get cleared on the next mouse move.
         const pointId = this.createRoutePoint(
           linestringRoute ? closestNetworkCoordinate : eventCoord
         )
@@ -616,9 +529,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
           : null);
 
       if (usedRoute) {
-        if (!linestringRoute && this.fallbackToStraightLine) {
-          this.syncIntermediateRoutePoints(usedRoute.geometry.coordinates);
-        }
         const newGeometry = {
           ...currentLineGeometry,
           coordinates: [

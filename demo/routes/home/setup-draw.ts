@@ -35,7 +35,7 @@ export function setupDraw(map: L.Map, leaflet: typeof L, routing: Routing) {
         routing,
         maxPoints: 5,
         fallbackToStraightLine: {
-          closerByTolerancePx: 15,
+          closerByTolerancePx: 30,
           forceSnapWithinPx: 5,
         },
         styles: {
