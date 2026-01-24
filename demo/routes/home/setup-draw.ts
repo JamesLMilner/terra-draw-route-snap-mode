@@ -34,10 +34,11 @@ export function setupDraw(map: L.Map, leaflet: typeof L, routing: Routing) {
       new TerraDrawRouteSnapMode({
         routing,
         maxPoints: 5,
-        fallback: {
-          snapAgainWithinPx: 30
-        },
+        straightLineFallback: false,
         styles: {
+          routePointWidth: 5,
+          routePointOutlineWidth: 2,
+          routePointOutlineColor: '#ffffff',
           lineStringColor: (feature) => {
             const routeId = feature.properties.routeId as string;
             if (!routeId) {

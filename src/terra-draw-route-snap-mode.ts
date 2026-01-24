@@ -44,9 +44,7 @@ interface TerraDrawRouteSnapModeOptions<T extends TerraDrawExtend.CustomStyling>
   keyEvents?: TerraDrawRouteSnapModeKeyEvents | null;
   maxPoints?: number;
   cursors?: Partial<Cursors>;
-  straightLineFallback?: boolean | {
-    snapAgainWithinPx: number;
-  }
+  straightLineFallback?: boolean;
 }
 
 const { TerraDrawBaseDrawMode } = TerraDrawExtend;
@@ -66,7 +64,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
   private routeId = 0;
   private latestMouseMoveEvent: TerraDrawMouseEvent | null = null;
   private straightLineFallback: boolean = false;
-  private snapAgainWithinPx: number | undefined;
 
   // We keep track of whether the current route incremented routeId so that we
   // can roll it back on cancel/cleanup (so cancelled routes don't consume ids).
@@ -102,12 +99,8 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       this.keyEvents = { ...this.keyEvents, ...options.keyEvents };
     }
 
-    if (options?.straightLineFallback) {
-      this.straightLineFallback = true;
-
-      if (typeof options.straightLineFallback === "object" && options.straightLineFallback.snapAgainWithinPx !== undefined) {
-        this.snapAgainWithinPx = options.straightLineFallback.snapAgainWithinPx;
-      }
+    if (options?.straightLineFallback !== undefined) {
+      this.straightLineFallback = options.straightLineFallback;
     }
   }
 
@@ -226,33 +219,42 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     closestNetworkCoordinate,
     routedLine,
     straightLine,
-    wasStraightLine,
   }: {
     event: TerraDrawMouseEvent;
     closestNetworkCoordinate: Position;
     routedLine: Feature<LineString> | null;
     straightLine: Feature<LineString>;
     wasStraightLine: boolean;
-  }): { linestringRoute: Feature<LineString>; isStraightLine: boolean } {
+  }): { linestringRoute: Feature<LineString> | undefined; isStraightLine: boolean } {
     let isStraightLine = false;
-    let linestringRoute = routedLine ?? straightLine;
+    let linestringRoute = undefined
 
-    if (!routedLine) {
+    // 5% of all coordinate nodes in the network 
+    const percent = 5;
+    const maxResults = Math.ceil((this.routing.getNodeCount() / 100) * percent);
+
+    const previousCoordinate = straightLine.geometry.coordinates[0];
+
+    // Get points near previous coordinate to see if closest network coordinate is close to previous coordinate
+    // If it is then we prefer a straight line to avoid doubling back on the route
+    const pointsNearPreviousCoordinate = this.routing.getClosestNetworkCoordinates(previousCoordinate, maxResults, Infinity);
+
+    const isCloseToPrevious = pointsNearPreviousCoordinate.some((coordinate) => {
+      const matching = coordinate[0] === closestNetworkCoordinate[0] &&
+        coordinate[1] === closestNetworkCoordinate[1];
+      return matching
+    });
+
+    const distToClosestNetworkCoordinate = this.measure(event, closestNetworkCoordinate);
+    const isFarFromClosestNetworkCoordinate = distToClosestNetworkCoordinate > this.pointerDistance
+
+    if (routedLine) {
+      linestringRoute = routedLine;
+    }
+
+    if (isCloseToPrevious && isFarFromClosestNetworkCoordinate) {
       isStraightLine = true;
       linestringRoute = straightLine;
-    } else if (wasStraightLine && this.snapAgainWithinPx !== undefined) {
-      const pixelDistToClosestNetworkCoordinate = this.measure(
-        event,
-        closestNetworkCoordinate
-      );
-
-      const isWithinSnapAgainTolerance =
-        pixelDistToClosestNetworkCoordinate < this.snapAgainWithinPx;
-
-      if (!isWithinSnapAgainTolerance) {
-        isStraightLine = true;
-        linestringRoute = straightLine;
-      }
     }
 
     return { linestringRoute, isStraightLine };
@@ -288,6 +290,10 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       wasStraightLine,
     });
 
+    if (!linestringRoute) {
+      return;
+    }
+
     if (!this.moveLineId) {
       this.createMoveLine(linestringRoute.geometry.coordinates, isStraightLine);
     } else {
@@ -299,17 +305,11 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
   private clickGetUpdateRoute({
     fromCoordinate,
     closestNetworkCoordinate,
-    eventCoord,
   }: {
     fromCoordinate: Position;
     closestNetworkCoordinate: Position;
-    eventCoord: Position;
-  }): { linestringRoute: Feature<LineString>; pointToCreate: Position } | null {
+  }): { linestringRoute: Feature<LineString> | null; pointToCreate: Position } {
     let routedLine = this.routing.getRoute(fromCoordinate, closestNetworkCoordinate);
-
-    if (!routedLine) {
-      routedLine = this.getStraightLineString([fromCoordinate, eventCoord]);
-    }
 
     return { linestringRoute: routedLine, pointToCreate: closestNetworkCoordinate };
   }
@@ -323,7 +323,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     fromCoordinate: Position;
     closestNetworkCoordinate: Position;
   }): {
-    linestringRoute: Feature<LineString>;
+    linestringRoute: Feature<LineString> | undefined;
     pointToCreate: Position;
     isStraightLine: boolean;
   } {
@@ -563,10 +563,9 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
         : this.clickGetUpdateRoute({
           fromCoordinate: firstCoordinate,
           closestNetworkCoordinate: closestPoint,
-          eventCoord,
         });
 
-      if (clickRoute) {
+      if (clickRoute && clickRoute.linestringRoute) {
         this.store.updateGeometry([
           {
             id: this.currentId,
@@ -606,10 +605,9 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
         : this.clickGetUpdateRoute({
           fromCoordinate: currentLastCoordinate,
           closestNetworkCoordinate: closestPoint,
-          eventCoord,
         });
 
-      if (clickRoute) {
+      if (clickRoute && clickRoute.linestringRoute) {
         const newGeometry = {
           ...currentLineGeometry,
           coordinates: [

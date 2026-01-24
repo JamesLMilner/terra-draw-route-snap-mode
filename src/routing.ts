@@ -20,6 +20,13 @@ export interface RoutingInterface {
     endCoord: Position
   ) => Feature<LineString> | null;
   getClosestNetworkCoordinate: (coordinate: Position) => Position | null;
+  getNodeCount: () => number;
+  getClosestNetworkCoordinates: (
+    coordinate: Position,
+    maxResults: number,
+    maxDistance: number
+  ) => Position[];
+  expandRouteNetwork: (additionalNetwork: FeatureCollection<LineString>) => void;
   setRouteFinder: (routeFinder: RouteFinder) => void;
   setNetwork: (network: FeatureCollection<LineString>) => void
 }
@@ -67,6 +74,10 @@ export class Routing implements RoutingInterface {
     this.routeCache = {};
   }
 
+  public getNodeCount() {
+    return this.indexedNetworkPoints.ids.length;
+  }
+
   /**
    * Return the closest network coordinate to the input coordinate
    * @param inputCoordinate The coordinate to find the closest network coordinate to
@@ -82,6 +93,27 @@ export class Routing implements RoutingInterface {
 
     const nearest = this.points[aroundInput[0]]
     return nearest ? nearest : null;
+  }
+
+  public getClosestNetworkCoordinates(
+    inputCoordinate: Position,
+    maxResults: number,
+    maxDistance: number
+  ) {
+    const aroundInput: number[] = around(
+      this.indexedNetworkPoints,
+      inputCoordinate[0],
+      inputCoordinate[1],
+      maxResults,
+      maxDistance
+    );
+
+    const nearestCoordinates: Position[] = [];
+    aroundInput.forEach((index) => {
+      nearestCoordinates.push(this.points[index]);
+    });
+
+    return nearestCoordinates;
   }
 
   /**

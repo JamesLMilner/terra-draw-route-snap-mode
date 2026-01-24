@@ -486,6 +486,32 @@ describe("TerraDrawRouteSnapMode", () => {
             routeSnapMode.updateOptions({ routing: createRouting(CreateTwoPointNetwork()) });
             expect(config.store.copyAll()).toHaveLength(0);
         });
+
+        it('should allow straightLineFallback to be toggled off', () => {
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing: createRouting(CreateThreePointNetwork()),
+                maxPoints: 5,
+                straightLineFallback: true,
+            });
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            // Disable fallback and ensure it stays disabled.
+            routeSnapMode.updateOptions({ straightLineFallback: false });
+
+            // Force routing to fail; with fallback disabled, preview should not create
+            // the move line because updateRoute() returns early when no route exists.
+            jest.spyOn((routeSnapMode as any).routing, 'getRoute').mockReturnValue(null);
+
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+            routeSnapMode.onMouseMove(MockCursorEvent({ lng: 5, lat: 6 }));
+
+            const lineStrings = config.store.copyAll().filter((f) => f.geometry.type === 'LineString');
+            // Only the main route line should exist (no preview line).
+            expect(lineStrings).toHaveLength(1);
+        });
     });
 
     describe('styleFeature', () => {
