@@ -6,7 +6,7 @@ import {
   GeoJSONStoreFeatures,
   TerraDrawExtend
 } from "terra-draw";
-import { LineString, Position } from "geojson";
+import { Feature, LineString, Position } from "geojson";
 import { Validation } from "terra-draw/dist/common";
 import { RoutingInterface } from "./routing";
 import { FeatureId } from "terra-draw/dist/extend";
@@ -44,6 +44,9 @@ interface TerraDrawRouteSnapModeOptions<T extends TerraDrawExtend.CustomStyling>
   keyEvents?: TerraDrawRouteSnapModeKeyEvents | null;
   maxPoints?: number;
   cursors?: Partial<Cursors>;
+  fallback?: boolean | {
+    snapAgainWithinPx: number;
+  }
 }
 
 const { TerraDrawBaseDrawMode } = TerraDrawExtend;
@@ -62,6 +65,8 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
   private currentPointIds: FeatureId[] = [];
   private routeId = 0;
   private latestMouseMoveEvent: TerraDrawMouseEvent | null = null;
+  private fallback: boolean = false;
+  private snapAgainWithinPx: number | undefined;
 
   // We keep track of whether the current route incremented routeId so that we
   // can roll it back on cancel/cleanup (so cancelled routes don't consume ids).
@@ -95,6 +100,14 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       this.keyEvents = { cancel: null, finish: null };
     } else if (options?.keyEvents) {
       this.keyEvents = { ...this.keyEvents, ...options.keyEvents };
+    }
+
+    if (options?.fallback) {
+      this.fallback = true;
+
+      if (typeof options.fallback === "object" && options.fallback.snapAgainWithinPx !== undefined) {
+        this.snapAgainWithinPx = options.fallback.snapAgainWithinPx;
+      }
     }
   }
 
@@ -159,8 +172,19 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     this.close();
   }
 
-  private getFeatureProperties() {
-    return { mode: this.mode, isDrawnRoute: true, routeId: this.routeId }
+  private getFeatureProperties(isStraightLine: boolean = false) {
+    return { mode: this.mode, isDrawnRoute: true, routeId: this.routeId, isStraightLine };
+  }
+
+  private getStraightLineString(coordinates: Position[]) {
+    return {
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates,
+      },
+      properties: this.getFeatureProperties(true),
+    } as Feature<LineString>;
   }
 
   private createRoutePoint(position: Position) {
@@ -177,6 +201,185 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     return createdId;
   }
 
+  private updateRoute({
+    currentLastCoordinate,
+    closestNetworkCoordinate
+  }: {
+    currentLastCoordinate: Position;
+    closestNetworkCoordinate: Position;
+  }) {
+    const linestringRoute = this.routing.getRoute(currentLastCoordinate, closestNetworkCoordinate);
+
+    if (!linestringRoute) {
+      return;
+    }
+
+    if (!this.moveLineId) {
+      const [createdId] = this.store.create([
+        {
+          geometry: linestringRoute.geometry,
+          properties: this.getFeatureProperties(),
+        },
+      ]);
+
+      this.moveLineId = createdId;
+    } else {
+      this.store.updateGeometry([
+        {
+          id: this.moveLineId,
+          geometry: linestringRoute.geometry,
+        },
+      ]);
+    }
+  }
+
+  private resolveFallbackRouteLine({
+    event,
+    closestNetworkCoordinate,
+    routedLine,
+    straightLine,
+    wasStraightLine,
+  }: {
+    event: TerraDrawMouseEvent;
+    closestNetworkCoordinate: Position;
+    routedLine: Feature<LineString> | null;
+    straightLine: Feature<LineString>;
+    wasStraightLine: boolean;
+  }): { linestringRoute: Feature<LineString>; isStraightLine: boolean } {
+    let isStraightLine = false;
+    let linestringRoute = routedLine ?? straightLine;
+
+    if (!routedLine) {
+      isStraightLine = true;
+      linestringRoute = straightLine;
+    } else if (wasStraightLine && this.snapAgainWithinPx !== undefined) {
+      const pixelDistToClosestNetworkCoordinate = this.measure(
+        event,
+        closestNetworkCoordinate
+      );
+
+      const isWithinSnapAgainTolerance =
+        pixelDistToClosestNetworkCoordinate < this.snapAgainWithinPx;
+
+      if (!isWithinSnapAgainTolerance) {
+        isStraightLine = true;
+        linestringRoute = straightLine;
+      }
+    }
+
+    return { linestringRoute, isStraightLine };
+  }
+
+  private updateRouteWithFallback({
+    event,
+    currentLastCoordinate,
+    closestNetworkCoordinate
+  }: {
+    event: TerraDrawMouseEvent;
+    currentLastCoordinate: Position;
+    closestNetworkCoordinate: Position;
+  }) {
+    const eventCoord: Position = [event.lng, event.lat];
+
+    const straightLine = this.getStraightLineString([currentLastCoordinate, eventCoord]);
+
+    const wasStraightLine = this.moveLineId
+      ? (this.store.getPropertiesCopy(this.moveLineId).isStraightLine as boolean)
+      : false;
+
+    const routedLine = this.routing.getRoute(
+      currentLastCoordinate,
+      closestNetworkCoordinate
+    );
+
+    const { linestringRoute, isStraightLine } = this.resolveFallbackRouteLine({
+      event,
+      closestNetworkCoordinate,
+      routedLine,
+      straightLine,
+      wasStraightLine,
+    });
+
+    if (!this.moveLineId) {
+      const [createdId] = this.store.create([
+        {
+          geometry: linestringRoute.geometry,
+          properties: this.getFeatureProperties(isStraightLine),
+        },
+      ]);
+
+      this.moveLineId = createdId;
+    } else {
+      this.store.updateGeometry([
+        {
+          id: this.moveLineId,
+          geometry: linestringRoute.geometry,
+        },
+      ]);
+      this.store.updateProperty([
+        {
+          id: this.moveLineId,
+          property: "isStraightLine",
+          value: isStraightLine
+        },
+      ]);
+    }
+  }
+
+  private clickUpdateRoute({
+    fromCoordinate,
+    closestNetworkCoordinate,
+    eventCoord,
+  }: {
+    fromCoordinate: Position;
+    closestNetworkCoordinate: Position;
+    eventCoord: Position;
+  }): { linestringRoute: Feature<LineString>; pointToCreate: Position } | null {
+    let routedLine = this.routing.getRoute(fromCoordinate, closestNetworkCoordinate);
+
+    if (!routedLine) {
+      routedLine = this.getStraightLineString([fromCoordinate, eventCoord]);
+    }
+
+    return { linestringRoute: routedLine, pointToCreate: closestNetworkCoordinate };
+  }
+
+  private clickUpdateRouteWithFallback({
+    event,
+    fromCoordinate,
+    closestNetworkCoordinate,
+  }: {
+    event: TerraDrawMouseEvent;
+    fromCoordinate: Position;
+    closestNetworkCoordinate: Position;
+  }): {
+    linestringRoute: Feature<LineString>;
+    pointToCreate: Position;
+    isStraightLine: boolean;
+  } {
+    const eventCoord: Position = [event.lng, event.lat];
+
+    const straightLine = this.getStraightLineString([fromCoordinate, eventCoord]);
+
+    const wasStraightLine = this.moveLineId
+      ? (this.store.getPropertiesCopy(this.moveLineId).isStraightLine as boolean)
+      : false;
+
+    const routedLine = this.routing.getRoute(fromCoordinate, closestNetworkCoordinate);
+
+    const { linestringRoute, isStraightLine } = this.resolveFallbackRouteLine({
+      event,
+      closestNetworkCoordinate,
+      routedLine,
+      straightLine,
+      wasStraightLine,
+    });
+
+    const pointToCreate = isStraightLine ? eventCoord : closestNetworkCoordinate;
+
+    return { linestringRoute, pointToCreate, isStraightLine };
+  }
+
   private processCursorMove(event: TerraDrawMouseEvent) {
     this.setCursor(this.cursors.draw);
 
@@ -185,6 +388,13 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     }
 
     if (!this.currentId || this.currentCoordinate === 0) {
+      return;
+    }
+
+    if (!this.store.has(this.currentId)) {
+      this.currentId = undefined;
+      this.currentCoordinate = 0;
+      this.currentPointIds = [];
       return;
     }
 
@@ -226,29 +436,19 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       return;
     }
 
-    const linestringRoute = this.routing.getRoute(currentLastCoordinate, closestNetworkCoordinate);
-
-    if (!linestringRoute) {
-      return;
-    }
-
-    if (!this.moveLineId) {
-      const [createdId] = this.store.create([
-        {
-          geometry: linestringRoute.geometry,
-          properties: this.getFeatureProperties(),
-        },
-      ]);
-
-      this.moveLineId = createdId;
+    if (this.fallback) {
+      this.updateRouteWithFallback({
+        event,
+        currentLastCoordinate,
+        closestNetworkCoordinate
+      });
     } else {
-      this.store.updateGeometry([
-        {
-          id: this.moveLineId,
-          geometry: linestringRoute.geometry,
-        },
-      ]);
+      this.updateRoute({
+        currentLastCoordinate,
+        closestNetworkCoordinate
+      });
     }
+
   }
 
   /** @internal */
@@ -347,20 +547,27 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       );
       const firstCoordinate = currentLineGeometry.coordinates[0];
 
-      const linestringRoute = this.routing.getRoute(
-        firstCoordinate,
-        closestPoint
-      );
+      const clickRoute = this.fallback
+        ? this.clickUpdateRouteWithFallback({
+          event,
+          fromCoordinate: firstCoordinate,
+          closestNetworkCoordinate: closestPoint,
+        })
+        : this.clickUpdateRoute({
+          fromCoordinate: firstCoordinate,
+          closestNetworkCoordinate: closestPoint,
+          eventCoord,
+        });
 
-      if (linestringRoute) {
+      if (clickRoute) {
         this.store.updateGeometry([
           {
             id: this.currentId,
-            geometry: linestringRoute?.geometry,
+            geometry: clickRoute.linestringRoute.geometry,
           },
         ]);
 
-        const pointId = this.createRoutePoint(closestPoint)
+        const pointId = this.createRoutePoint(clickRoute.pointToCreate);
 
         this.currentCoordinate = 2;
         this.currentPointIds.push(pointId);
@@ -383,17 +590,24 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       const currentLength = currentLineGeometry.coordinates.length - 1;
       const currentLastCoordinate = currentLineGeometry.coordinates[currentLength];
 
-      const linestringRoute = this.routing.getRoute(
-        currentLastCoordinate,
-        closestPoint
-      );
+      const clickRoute = this.fallback
+        ? this.clickUpdateRouteWithFallback({
+          event,
+          fromCoordinate: currentLastCoordinate,
+          closestNetworkCoordinate: closestPoint,
+        })
+        : this.clickUpdateRoute({
+          fromCoordinate: currentLastCoordinate,
+          closestNetworkCoordinate: closestPoint,
+          eventCoord,
+        });
 
-      if (linestringRoute) {
+      if (clickRoute) {
         const newGeometry = {
           ...currentLineGeometry,
           coordinates: [
             ...currentLineGeometry.coordinates,
-            ...linestringRoute.geometry.coordinates.slice(1),
+            ...clickRoute.linestringRoute.geometry.coordinates.slice(1),
           ],
         };
 
@@ -409,7 +623,8 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
         if (this.currentCoordinate + 1 > this.maxPoints) {
           this.finish();
         } else {
-          const pointId = this.createRoutePoint(closestPoint);
+          const pointId = this.createRoutePoint(clickRoute.pointToCreate);
+
           this.currentCoordinate++;
           this.currentPointIds.push(pointId);
 
