@@ -128,6 +128,22 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     return distance;
   }
 
+  private measureCoordinateToCoordinate(coordinateOne: Position, coordinateTwo: Position) {
+    const { x, y } = this.project(coordinateOne[0], coordinateOne[1]);
+    const previousEvent = {
+      lng: coordinateOne[0],
+      lat: coordinateOne[1],
+      containerX: x,
+      containerY: y,
+      button: 'left' as const,
+      heldKeys: []
+    }
+    const distToPrevious = this.measure(previousEvent, coordinateTwo);
+
+    return distToPrevious
+  }
+
+
   private close() {
     if (!this.currentId) {
       return;
@@ -228,25 +244,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     let isStraightLine = false;
     let linestringRoute = undefined
 
-    // 5% of all coordinate nodes in the network 
-    const percent = 5;
-    let maxResults = Math.ceil((this.routing.getNodeCount() / 100) * percent);
-    maxResults = Math.max(2, maxResults); // Ensure at least 2 results
-
-    const previousCoordinate = straightLine.geometry.coordinates[0];
-
-    // Get points near previous coordinate to see if closest network coordinate is close to previous coordinate
-    // If it is then we prefer a straight line to avoid doubling back on the route
-    const pointsNearPreviousCoordinate = this.routing.getClosestNetworkCoordinates(previousCoordinate, maxResults, Infinity);
-
-    console.log({ maxResults, pointsNearPreviousCoordinate })
-
-    const isCloseToPrevious = pointsNearPreviousCoordinate.some((coordinate) => {
-      const matching = coordinate[0] === closestNetworkCoordinate[0] &&
-        coordinate[1] === closestNetworkCoordinate[1];
-      return matching
-    });
-
     const distToClosestNetworkCoordinate = this.measure(event, closestNetworkCoordinate);
     const isFarFromClosestNetworkCoordinate = distToClosestNetworkCoordinate > this.pointerDistance
 
@@ -254,9 +251,49 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       linestringRoute = routedLine;
     }
 
-    if (isCloseToPrevious && isFarFromClosestNetworkCoordinate) {
-      isStraightLine = true;
-      linestringRoute = straightLine;
+    if (isFarFromClosestNetworkCoordinate) {
+      const previousCoordinate = straightLine.geometry.coordinates[0];
+
+      // If the previously placed coordinate is already off-network, allow
+      // continuing straight-line drawing outside the network.
+      const closestNetworkToPrevious = this.routing.getClosestNetworkCoordinate(previousCoordinate);
+      const isPreviousFarFromNetwork = !closestNetworkToPrevious
+        ? true
+        : this.measureCoordinateToCoordinate(previousCoordinate, closestNetworkToPrevious) >
+        this.pointerDistance;
+
+      if (isPreviousFarFromNetwork) {
+        isStraightLine = true;
+        linestringRoute = straightLine;
+        return { linestringRoute, isStraightLine };
+      }
+
+      // Get points near previous coordinate to see if closest network coordinate is close to previous coordinate
+      // If it is then we prefer a straight line to avoid doubling back on the route
+      const max = 1000;
+      const min = 10;
+      const onePercentOfPoints = Math.ceil(this.routing.getNodeCount() / 100);
+      const maxResults = Math.min(Math.max(onePercentOfPoints, min), max);
+      const maxDistance = Infinity;
+
+      const pointsGeoNearPreviousCoordinate = this.routing.getClosestNetworkCoordinates(previousCoordinate, maxResults, maxDistance)
+
+      const pointsNearPreviousCoordinate = pointsGeoNearPreviousCoordinate
+        .filter((coordinate) => {
+          return this.measureCoordinateToCoordinate(previousCoordinate, coordinate) <= this.pointerDistance;
+        });
+
+      const isCloseToPrevious = pointsNearPreviousCoordinate.some((coordinate) => {
+        const matching = coordinate[0] === closestNetworkCoordinate[0] &&
+          coordinate[1] === closestNetworkCoordinate[1];
+        return matching
+      });
+
+      if (isCloseToPrevious) {
+        isStraightLine = true;
+        linestringRoute = straightLine;
+      }
+
     }
 
     return { linestringRoute, isStraightLine };
