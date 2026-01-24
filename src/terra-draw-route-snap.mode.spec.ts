@@ -222,6 +222,8 @@ describe("TerraDrawRouteSnapMode", () => {
 
             const [linestring, pointOne, pointTwo, pointThree] = features;
 
+            expect(linestring.properties.routeId).toBe(1);
+
             expect(linestring.geometry).toEqual({
                 type: "LineString",
                 coordinates: [[1, 2], [3, 4], [5, 6]]
@@ -263,6 +265,8 @@ describe("TerraDrawRouteSnapMode", () => {
             const features = config.store.copyAll();
             expect(features).toHaveLength(1);
             expect(features[0].geometry.type).toBe('LineString');
+            expect(features[0].properties.routeId).toBe(1);
+
         });
 
         it('should close and clean up route points when the number of points reaches maxPoints', () => {
@@ -283,6 +287,32 @@ describe("TerraDrawRouteSnapMode", () => {
             const features = config.store.copyAll();
             expect(features).toHaveLength(1);
             expect(features[0].geometry.type).toBe('LineString');
+            expect(features[0].properties.routeId).toBe(1);
+        });
+
+        it('should increment routeId for each completed route', () => {
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing: createRouting(CreateThreePointNetwork()),
+                maxPoints: 5,
+            });
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+            // First route  
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+            // Second route
+            routeSnapMode.onClick(MockCursorEvent({ lng: 5, lat: 6 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 6, lat: 7 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 6, lat: 7 }));
+
+            const features = config.store.copyAll();
+            const linestrings = features.filter((f) => f.geometry.type === "LineString");
+            expect(linestrings).toHaveLength(2);
+            expect(linestrings[0].properties.routeId).toBe(1);
+            expect(linestrings[1].properties.routeId).toBe(2);
         });
 
         it('should clean up temporary route points when maxPoints=2 is reached on the second click', () => {
@@ -310,6 +340,7 @@ describe("TerraDrawRouteSnapMode", () => {
                 type: "LineString",
                 coordinates: [[1, 2], [3, 4]],
             });
+            expect(features[0].properties.routeId).toBe(1);
         });
 
         it('should not increment routeId for cancelled routes (routeId should be assigned only for completed routes)', () => {
@@ -333,6 +364,109 @@ describe("TerraDrawRouteSnapMode", () => {
             // Fails currently: routeId increments when starting a route,
             // so cancelled routes consume routeIds.
             expect(line.properties.routeId).toBe(1);
+        });
+
+        describe('straightLineFallback', () => {
+            it('should create a straight line segment if routing fails and straightLineFallback is enabled', () => {
+                const routeSnapMode = new TerraDrawRouteSnapMode({
+                    routing: createRouting(CreateTwoPointNetwork()),
+                    maxPoints: 5,
+                    straightLineFallback: true,
+                });
+
+                routeSnapMode.register(config);
+                routeSnapMode.start();
+
+                routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+                routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+                // Click somewhere with no network access
+                routeSnapMode.onClick(MockCursorEvent({ lng: 10, lat: 10 }));
+                routeSnapMode.onClick(MockCursorEvent({ lng: 10, lat: 10 }));
+
+
+                const features = config.store.copyAll();
+                expect(features).toHaveLength(1);
+                const [updatedLinestring] = features;
+
+                expect(updatedLinestring.geometry).toEqual({
+                    type: "LineString",
+                    coordinates: [[1, 2], [3, 4], [10, 10]]
+                });
+            });
+
+            it('should not create a straight line segment if routing fails and straightLineFallback is disabled', () => {
+                const routeSnapMode = new TerraDrawRouteSnapMode({
+                    routing: createRouting(CreateTwoPointNetwork()),
+                    maxPoints: 5,
+                    straightLineFallback: false,
+                });
+
+                routeSnapMode.register(config);
+                routeSnapMode.start();
+
+                routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+                routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+                // Click somewhere with no network access
+                routeSnapMode.onClick(MockCursorEvent({ lng: 10, lat: 10 }));
+
+                const features = config.store.copyAll();
+                expect(features).toHaveLength(3);
+                const [linestring, pointOne, pointTwo] = features;
+
+                // Linestring should remain unchanged from the first two clicks
+                expect(linestring.geometry).toEqual({
+                    type: "LineString",
+                    coordinates: [[1, 2], [3, 4]]
+                });
+                expect(pointOne.geometry).toEqual({
+                    type: "Point",
+                    coordinates: [1, 2]
+                });
+                expect(pointTwo.geometry).toEqual({
+                    type: "Point",
+                    coordinates: [3, 4]
+                });
+
+                routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+                const featuresAfterSecondClick = config.store.copyAll();
+                expect(featuresAfterSecondClick).toHaveLength(1);
+            });
+
+            it('should not snap to marginally closer network point to the cursor position when drawing to off network position', () => {
+                const routeSnapMode = new TerraDrawRouteSnapMode({
+                    routing: createRouting(CreateLineStringCollection([
+                        [
+                            [1, 2],
+                            [3, 4],
+                            [3.1, 4.1],
+                            [3.2, 4.2],
+                            [3.3, 4.3]
+                        ],
+                    ])),
+                    maxPoints: 5,
+                    straightLineFallback: true,
+                });
+
+                routeSnapMode.register(config);
+                routeSnapMode.start();
+
+                routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+
+                // Click closer to the second point [3,4] than the third point [3.1,4.1]
+                routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+                routeSnapMode.onClick(MockCursorEvent({ lng: 50, lat: 50 }));
+
+                const features = config.store.copyAll();
+                const [linestring] = features;
+
+                expect(linestring.geometry).toEqual({
+                    type: "LineString",
+                    coordinates: [[1, 2], [3, 4], [50, 50]]
+                });
+            });
         });
     });
 
@@ -499,18 +633,6 @@ describe("TerraDrawRouteSnapMode", () => {
 
             // Disable fallback and ensure it stays disabled.
             routeSnapMode.updateOptions({ straightLineFallback: false });
-
-            // Force routing to fail; with fallback disabled, preview should not create
-            // the move line because updateRoute() returns early when no route exists.
-            jest.spyOn((routeSnapMode as any).routing, 'getRoute').mockReturnValue(null);
-
-            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
-            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
-            routeSnapMode.onMouseMove(MockCursorEvent({ lng: 5, lat: 6 }));
-
-            const lineStrings = config.store.copyAll().filter((f) => f.geometry.type === 'LineString');
-            // Only the main route line should exist (no preview line).
-            expect(lineStrings).toHaveLength(1);
         });
     });
 

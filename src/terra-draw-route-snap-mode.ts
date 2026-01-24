@@ -165,8 +165,8 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     this.close();
   }
 
-  private getFeatureProperties(isStraightLine: boolean = false) {
-    return { mode: this.mode, isDrawnRoute: true, routeId: this.routeId, isStraightLine };
+  private getFeatureProperties() {
+    return { mode: this.mode, isDrawnRoute: true, routeId: this.routeId };
   }
 
   private getStraightLineString(coordinates: Position[]) {
@@ -176,7 +176,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
         type: "LineString",
         coordinates,
       },
-      properties: this.getFeatureProperties(true),
+      properties: this.getFeatureProperties(),
     } as Feature<LineString>;
   }
 
@@ -224,20 +224,22 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     closestNetworkCoordinate: Position;
     routedLine: Feature<LineString> | null;
     straightLine: Feature<LineString>;
-    wasStraightLine: boolean;
   }): { linestringRoute: Feature<LineString> | undefined; isStraightLine: boolean } {
     let isStraightLine = false;
     let linestringRoute = undefined
 
     // 5% of all coordinate nodes in the network 
     const percent = 5;
-    const maxResults = Math.ceil((this.routing.getNodeCount() / 100) * percent);
+    let maxResults = Math.ceil((this.routing.getNodeCount() / 100) * percent);
+    maxResults = Math.max(2, maxResults); // Ensure at least 2 results
 
     const previousCoordinate = straightLine.geometry.coordinates[0];
 
     // Get points near previous coordinate to see if closest network coordinate is close to previous coordinate
     // If it is then we prefer a straight line to avoid doubling back on the route
     const pointsNearPreviousCoordinate = this.routing.getClosestNetworkCoordinates(previousCoordinate, maxResults, Infinity);
+
+    console.log({ maxResults, pointsNearPreviousCoordinate })
 
     const isCloseToPrevious = pointsNearPreviousCoordinate.some((coordinate) => {
       const matching = coordinate[0] === closestNetworkCoordinate[0] &&
@@ -273,21 +275,16 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
 
     const straightLine = this.getStraightLineString([currentLastCoordinate, eventCoord]);
 
-    const wasStraightLine = this.moveLineId
-      ? (this.store.getPropertiesCopy(this.moveLineId).isStraightLine as boolean)
-      : false;
-
     const routedLine = this.routing.getRoute(
       currentLastCoordinate,
       closestNetworkCoordinate
     );
 
-    const { linestringRoute, isStraightLine } = this.resolveFallbackRouteLine({
+    const { linestringRoute } = this.resolveFallbackRouteLine({
       event,
       closestNetworkCoordinate,
       routedLine,
       straightLine,
-      wasStraightLine,
     });
 
     if (!linestringRoute) {
@@ -295,9 +292,9 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     }
 
     if (!this.moveLineId) {
-      this.createMoveLine(linestringRoute.geometry.coordinates, isStraightLine);
+      this.createMoveLine(linestringRoute.geometry.coordinates);
     } else {
-      this.updateMoveLine(linestringRoute.geometry.coordinates, isStraightLine);
+      this.updateMoveLine(linestringRoute.geometry.coordinates);
 
     }
   }
@@ -331,10 +328,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
 
     const straightLine = this.getStraightLineString([fromCoordinate, eventCoord]);
 
-    const wasStraightLine = this.moveLineId
-      ? (this.store.getPropertiesCopy(this.moveLineId).isStraightLine as boolean)
-      : false;
-
     const routedLine = this.routing.getRoute(fromCoordinate, closestNetworkCoordinate);
 
     const { linestringRoute, isStraightLine } = this.resolveFallbackRouteLine({
@@ -342,7 +335,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       closestNetworkCoordinate,
       routedLine,
       straightLine,
-      wasStraightLine,
     });
 
     const pointToCreate = isStraightLine ? eventCoord : closestNetworkCoordinate;
@@ -350,21 +342,21 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     return { linestringRoute, pointToCreate, isStraightLine };
   }
 
-  private createMoveLine(coordinates: Position[], isStraightLine = false) {
+  private createMoveLine(coordinates: Position[]) {
     const [createdId] = this.store.create([
       {
         geometry: {
           type: "LineString",
           coordinates,
         },
-        properties: this.getFeatureProperties(isStraightLine),
+        properties: this.getFeatureProperties(),
       },
     ]);
 
     this.moveLineId = createdId;
   }
 
-  private updateMoveLine(coordinates: Position[], isStraightLine = false) {
+  private updateMoveLine(coordinates: Position[]) {
     if (!this.moveLineId) {
       return;
     }
@@ -376,13 +368,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
           type: "LineString",
           coordinates,
         },
-      },
-    ]);
-    this.store.updateProperty([
-      {
-        id: this.moveLineId,
-        property: "isStraightLine",
-        value: isStraightLine
       },
     ]);
   }
