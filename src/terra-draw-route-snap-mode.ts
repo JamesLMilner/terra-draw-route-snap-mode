@@ -65,6 +65,10 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
   private latestMouseMoveEvent: TerraDrawMouseEvent | null = null;
   private straightLineFallback: boolean = false;
 
+  // When straight-line fallback is enabled, we persist whether the user is currently
+  // drawing off-network with straight segments (committed via click).
+  private isDrawingStraightLine = false;
+
   // We keep track of whether the current route incremented routeId so that we
   // can roll it back on cancel/cleanup (so cancelled routes don't consume ids).
   private didIncrementRouteIdForCurrentRoute = false;
@@ -153,6 +157,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     this.currentCoordinate = 0;
     this.currentId = undefined;
     this.currentPointIds = [];
+    this.isDrawingStraightLine = false;
 
     // Go back to started state
     if (this.state === "drawing") {
@@ -260,51 +265,41 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     return isCloseToPrevious;
   }
 
-  private isPreviousFarFromNetwork(previousCoordinate: Position): boolean {
-    // If the previously placed coordinate is already off-network, allow
-    // continuing straight-line drawing outside the network.
-    const closestNetworkToPrevious = this.routing.getClosestNetworkCoordinate(previousCoordinate);
-    const isPreviousFarFromNetwork = closestNetworkToPrevious === null ||
-      this.measureCoordinateToCoordinate(previousCoordinate, closestNetworkToPrevious) >
-      this.pointerDistance;
-
-    return isPreviousFarFromNetwork;
-  }
-
   private resolveFallbackRouteLine({
     closestNetworkCoordinate,
     routedLine,
     straightLine,
+    forceStraightLine,
   }: {
     closestNetworkCoordinate: Position;
     routedLine: Feature<LineString> | null;
     straightLine: Feature<LineString>;
+    forceStraightLine: boolean;
   }): { linestringRoute: Feature<LineString> | undefined; isStraightLine: boolean } {
-    let isStraightLine = false;
-    let linestringRoute = undefined
-
-    if (routedLine) {
-      linestringRoute = routedLine;
+    // If the user has already committed to drawing off-network, keep drawing straight
+    // segments until a routed segment is committed (state flips on click).
+    if (forceStraightLine) {
+      return { linestringRoute: straightLine, isStraightLine: true };
     }
+
+    // NOTE: We do not always fallback to a straight line because there may be times when a route cannot be generated
+    // because the network is disconnected (i.e. the nearest route network point is on a different connected component). 
+    // In these cases drawing a straight line may be undesirable as it may cross the network which may be confusing to the user. 
+
     const previousCoordinate = straightLine.geometry.coordinates[0];
 
-    // If the previous coordinate is far from the network, prefer straight line drawing
-    if (this.isPreviousFarFromNetwork(previousCoordinate)) {
-      isStraightLine = true;
-      linestringRoute = straightLine;
-      return { linestringRoute, isStraightLine };
-    }
-
-    // If the new closest network coordinate is near the previous coordinate
-    // prefer a straight line to avoid quickly snapping back to the network
-    const isCloseToPrevious = this.isClosestNetworkCoordinateNearPrevious(previousCoordinate, closestNetworkCoordinate);
+    // If the closest network coordinate is already effectively "at" the previous
+    // coordinate, prefer a straight line to avoid doubling back.
+    const isCloseToPrevious = this.isClosestNetworkCoordinateNearPrevious(
+      previousCoordinate,
+      closestNetworkCoordinate
+    );
 
     if (isCloseToPrevious) {
-      isStraightLine = true;
-      linestringRoute = straightLine;
+      return { linestringRoute: straightLine, isStraightLine: true };
     }
 
-    return { linestringRoute, isStraightLine };
+    return { linestringRoute: routedLine ? routedLine : undefined, isStraightLine: false };
   }
 
   private updateRouteWithFallback({
@@ -329,6 +324,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       closestNetworkCoordinate,
       routedLine,
       straightLine,
+      forceStraightLine: this.isDrawingStraightLine,
     });
 
     if (!linestringRoute) {
@@ -378,6 +374,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       closestNetworkCoordinate,
       routedLine,
       straightLine,
+      forceStraightLine: this.isDrawingStraightLine,
     });
 
     const pointToCreate = isStraightLine ? eventCoord : closestNetworkCoordinate;
@@ -527,6 +524,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       this.currentId = undefined;
       this.currentCoordinate = 0;
       this.currentPointIds = [];
+      this.isDrawingStraightLine = false;
     }
 
     if (this.currentId) {
@@ -547,6 +545,9 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       // if the user cancels the route via cleanUp.
       this.routeId++;
       this.didIncrementRouteIdForCurrentRoute = true;
+
+      // New route starts on-network by definition (first click snaps), so reset.
+      this.isDrawingStraightLine = false;
     }
 
     const closestPoint = this.routing.getClosestNetworkCoordinate(eventCoord);
@@ -601,6 +602,12 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
           },
         ]);
 
+        // Commit straight-line mode state (only when fallback is enabled)
+        this.isDrawingStraightLine =
+          this.straightLineFallback && clickRoute && "isStraightLine" in clickRoute
+            ? clickRoute.isStraightLine
+            : false;
+
         const pointId = this.createRoutePoint(clickRoute.pointToCreate);
 
         this.currentCoordinate = 2;
@@ -650,6 +657,12 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
             geometry: newGeometry,
           },
         ]);
+
+        // Commit straight-line mode state (only when fallback is enabled)
+        this.isDrawingStraightLine =
+          this.straightLineFallback && clickRoute && "isStraightLine" in clickRoute
+            ? clickRoute.isStraightLine
+            : false;
 
         // If adding another point would exceed maxPoints, finish immediately.
         // At this stage we already have `currentCoordinate` route points.
@@ -705,6 +718,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     this.moveLineId = undefined;
     this.currentPointIds = [];
     this.currentCoordinate = 0;
+    this.isDrawingStraightLine = false;
 
     // If the current route was never finished and we incremented the routeId on
     // start, roll it back so cancelled routes don't consume ids.
