@@ -272,12 +272,10 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
   }
 
   private resolveFallbackRouteLine({
-    event,
     closestNetworkCoordinate,
     routedLine,
     straightLine,
   }: {
-    event: TerraDrawMouseEvent;
     closestNetworkCoordinate: Position;
     routedLine: Feature<LineString> | null;
     straightLine: Feature<LineString>;
@@ -288,16 +286,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     if (routedLine) {
       linestringRoute = routedLine;
     }
-
-    // We have to account for the coordinate being on a different connected component
-    // in which case we do not want to draw a straight line
-    const distToClosestNetworkCoordinate = this.measure(event, closestNetworkCoordinate);
-    const isFarFromClosestNetworkCoordinate = distToClosestNetworkCoordinate > this.pointerDistance
-
-    if (!isFarFromClosestNetworkCoordinate) {
-      return { linestringRoute, isStraightLine };
-    }
-
     const previousCoordinate = straightLine.geometry.coordinates[0];
 
     // If the previous coordinate is far from the network, prefer straight line drawing
@@ -338,7 +326,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     );
 
     const { linestringRoute } = this.resolveFallbackRouteLine({
-      event,
       closestNetworkCoordinate,
       routedLine,
       straightLine,
@@ -388,7 +375,6 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     const routedLine = this.routing.getRoute(fromCoordinate, closestNetworkCoordinate);
 
     const { linestringRoute, isStraightLine } = this.resolveFallbackRouteLine({
-      event,
       closestNetworkCoordinate,
       routedLine,
       straightLine,
