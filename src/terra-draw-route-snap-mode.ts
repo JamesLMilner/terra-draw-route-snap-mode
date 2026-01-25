@@ -230,6 +230,47 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     }
   }
 
+  private getMaxResults() {
+    const max = 1000;
+    const min = 10;
+    const onePercentOfPoints = Math.ceil(this.routing.getNodeCount() / 100);
+    const maxResults = Math.min(Math.max(onePercentOfPoints, min), max);
+    const maxDistance = Infinity;
+
+    return { maxResults, maxDistance };
+  }
+
+  private isClosestNetworkCoordinateNearPrevious(previousCoordinate: Position, closestNetworkCoordinate: Position): boolean {
+    // Get points near previous coordinate to see if closest network coordinate is close to previous coordinate
+    // If it is then we prefer a straight line to avoid doubling back on the route
+    const { maxResults, maxDistance } = this.getMaxResults();
+    const pointsGeoNearPreviousCoordinate = this.routing.getClosestNetworkCoordinates(previousCoordinate, maxResults, maxDistance)
+
+    const pointsNearPreviousCoordinate = pointsGeoNearPreviousCoordinate
+      .filter((coordinate) => {
+        return this.measureCoordinateToCoordinate(previousCoordinate, coordinate) <= this.pointerDistance;
+      });
+
+    const isCloseToPrevious = pointsNearPreviousCoordinate.some((coordinate) => {
+      const matching = coordinate[0] === closestNetworkCoordinate[0] &&
+        coordinate[1] === closestNetworkCoordinate[1];
+      return matching
+    });
+
+    return isCloseToPrevious;
+  }
+
+  private isPreviousFarFromNetwork(previousCoordinate: Position): boolean {
+    // If the previously placed coordinate is already off-network, allow
+    // continuing straight-line drawing outside the network.
+    const closestNetworkToPrevious = this.routing.getClosestNetworkCoordinate(previousCoordinate);
+    const isPreviousFarFromNetwork = closestNetworkToPrevious === null ||
+      this.measureCoordinateToCoordinate(previousCoordinate, closestNetworkToPrevious) >
+      this.pointerDistance;
+
+    return isPreviousFarFromNetwork;
+  }
+
   private resolveFallbackRouteLine({
     event,
     closestNetworkCoordinate,
@@ -244,56 +285,35 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     let isStraightLine = false;
     let linestringRoute = undefined
 
-    const distToClosestNetworkCoordinate = this.measure(event, closestNetworkCoordinate);
-    const isFarFromClosestNetworkCoordinate = distToClosestNetworkCoordinate > this.pointerDistance
-
     if (routedLine) {
       linestringRoute = routedLine;
     }
 
-    if (isFarFromClosestNetworkCoordinate) {
-      const previousCoordinate = straightLine.geometry.coordinates[0];
+    // We have to account for the coordinate being on a different connected component
+    // in which case we do not want to draw a straight line
+    const distToClosestNetworkCoordinate = this.measure(event, closestNetworkCoordinate);
+    const isFarFromClosestNetworkCoordinate = distToClosestNetworkCoordinate > this.pointerDistance
 
-      // If the previously placed coordinate is already off-network, allow
-      // continuing straight-line drawing outside the network.
-      const closestNetworkToPrevious = this.routing.getClosestNetworkCoordinate(previousCoordinate);
-      const isPreviousFarFromNetwork = !closestNetworkToPrevious
-        ? true
-        : this.measureCoordinateToCoordinate(previousCoordinate, closestNetworkToPrevious) >
-        this.pointerDistance;
+    if (!isFarFromClosestNetworkCoordinate) {
+      return { linestringRoute, isStraightLine };
+    }
 
-      if (isPreviousFarFromNetwork) {
-        isStraightLine = true;
-        linestringRoute = straightLine;
-        return { linestringRoute, isStraightLine };
-      }
+    const previousCoordinate = straightLine.geometry.coordinates[0];
 
-      // Get points near previous coordinate to see if closest network coordinate is close to previous coordinate
-      // If it is then we prefer a straight line to avoid doubling back on the route
-      const max = 1000;
-      const min = 10;
-      const onePercentOfPoints = Math.ceil(this.routing.getNodeCount() / 100);
-      const maxResults = Math.min(Math.max(onePercentOfPoints, min), max);
-      const maxDistance = Infinity;
+    // If the previous coordinate is far from the network, prefer straight line drawing
+    if (this.isPreviousFarFromNetwork(previousCoordinate)) {
+      isStraightLine = true;
+      linestringRoute = straightLine;
+      return { linestringRoute, isStraightLine };
+    }
 
-      const pointsGeoNearPreviousCoordinate = this.routing.getClosestNetworkCoordinates(previousCoordinate, maxResults, maxDistance)
+    // If the new closest network coordinate is near the previous coordinate
+    // prefer a straight line to avoid quickly snapping back to the network
+    const isCloseToPrevious = this.isClosestNetworkCoordinateNearPrevious(previousCoordinate, closestNetworkCoordinate);
 
-      const pointsNearPreviousCoordinate = pointsGeoNearPreviousCoordinate
-        .filter((coordinate) => {
-          return this.measureCoordinateToCoordinate(previousCoordinate, coordinate) <= this.pointerDistance;
-        });
-
-      const isCloseToPrevious = pointsNearPreviousCoordinate.some((coordinate) => {
-        const matching = coordinate[0] === closestNetworkCoordinate[0] &&
-          coordinate[1] === closestNetworkCoordinate[1];
-        return matching
-      });
-
-      if (isCloseToPrevious) {
-        isStraightLine = true;
-        linestringRoute = straightLine;
-      }
-
+    if (isCloseToPrevious) {
+      isStraightLine = true;
+      linestringRoute = straightLine;
     }
 
     return { linestringRoute, isStraightLine };
