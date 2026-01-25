@@ -23,6 +23,7 @@ interface TerraDrawRouteSnapModeOptions<T extends TerraDrawExtend.CustomStyling>
     keyEvents?: TerraDrawRouteSnapModeKeyEvents | null;
     maxPoints?: number;
     cursors?: Partial<Cursors>;
+    straightLineFallback?: boolean;
 }
 declare const TerraDrawBaseDrawMode: typeof TerraDrawExtend.TerraDrawBaseDrawMode;
 export declare class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyling> {
@@ -37,15 +38,28 @@ export declare class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteS
     private currentPointIds;
     private routeId;
     private latestMouseMoveEvent;
+    private straightLineFallback;
+    private isDrawingStraightLine;
     private didIncrementRouteIdForCurrentRoute;
     constructor(options?: TerraDrawRouteSnapModeOptions<RouteSnapStyling>);
     updateOptions(options?: Partial<TerraDrawRouteSnapModeOptions<RouteSnapStyling>>): void;
     private pixelDistance;
     private measure;
+    private measureCoordinateToCoordinate;
     private close;
     private finish;
     private getFeatureProperties;
+    private getStraightLineString;
     private createRoutePoint;
+    private updateRoute;
+    private getMaxResults;
+    private isClosestNetworkCoordinateNearPrevious;
+    private resolveFallbackRouteLine;
+    private updateRouteWithFallback;
+    private clickGetUpdateRoute;
+    private clickGetUpdateRouteWithFallback;
+    private createMoveLine;
+    private updateMoveLine;
     private processCursorMove;
     /** @internal */
     registerBehaviors(config: BehaviorConfig): void;

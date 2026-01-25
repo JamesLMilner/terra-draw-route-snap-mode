@@ -1,6 +1,6 @@
 {
     "name": "terra-draw-route-snap-mode",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "description": "A mode for Terra Draw to provide snapping to a route network",
     "scripts": {
         "docs": "typedoc",

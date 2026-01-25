@@ -7,6 +7,9 @@ export type RouteFinder = {
 export interface RoutingInterface {
     getRoute: (startCoord: Position, endCoord: Position) => Feature<LineString> | null;
     getClosestNetworkCoordinate: (coordinate: Position) => Position | null;
+    getNodeCount: () => number;
+    getClosestNetworkCoordinates: (coordinate: Position, maxResults: number, maxDistance: number) => Position[];
+    expandRouteNetwork: (additionalNetwork: FeatureCollection<LineString>) => void;
     setRouteFinder: (routeFinder: RouteFinder) => void;
     setNetwork: (network: FeatureCollection<LineString>) => void;
 }
@@ -28,12 +31,14 @@ export declare class Routing implements RoutingInterface {
     private network;
     private routeCache;
     private initialise;
+    getNodeCount(): number;
     /**
      * Return the closest network coordinate to the input coordinate
      * @param inputCoordinate The coordinate to find the closest network coordinate to
      * @returns a coordinate on the network or null if no coordinate is found
      */
     getClosestNetworkCoordinate(inputCoordinate: Position): Position | null;
+    getClosestNetworkCoordinates(inputCoordinate: Position, maxResults: number, maxDistance: number): Position[];
     /**
      * Set the route finder for the routing instance
      * @param routeFinder The route finder to use
