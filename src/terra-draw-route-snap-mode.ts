@@ -183,6 +183,8 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       this.store.delete(deletable);
     }
 
+    this.onFinish(this.currentId, { mode: this.mode, action: "draw" });
+
     this.close();
   }
 
