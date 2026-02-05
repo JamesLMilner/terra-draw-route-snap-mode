@@ -242,6 +242,8 @@ describe("TerraDrawRouteSnapMode", () => {
             });
 
             expect(routing.getRoute).toHaveBeenCalledTimes(2)
+
+            expect(config.onFinish).toHaveBeenCalledTimes(0);
         })
 
         it('should close the route and remove route points when clicking close to the last coordinate', () => {
@@ -266,7 +268,9 @@ describe("TerraDrawRouteSnapMode", () => {
             expect(features).toHaveLength(1);
             expect(features[0].geometry.type).toBe('LineString');
             expect(features[0].properties.routeId).toBe(1);
+            expect(config.onFinish).toHaveBeenCalledTimes(1);
 
+            expect(config.onFinish).toHaveBeenCalledTimes(1);
         });
 
         it('should close and clean up route points when the number of points reaches maxPoints', () => {
@@ -288,6 +292,8 @@ describe("TerraDrawRouteSnapMode", () => {
             expect(features).toHaveLength(1);
             expect(features[0].geometry.type).toBe('LineString');
             expect(features[0].properties.routeId).toBe(1);
+
+            expect(config.onFinish).toHaveBeenCalledTimes(1);
         });
 
         it('should increment routeId for each completed route', () => {
@@ -302,6 +308,8 @@ describe("TerraDrawRouteSnapMode", () => {
             routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
             routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
             routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+            expect(config.onFinish).toHaveBeenCalledTimes(1);
 
             // Second route
             routeSnapMode.onClick(MockCursorEvent({ lng: 5, lat: 6 }));
@@ -341,6 +349,8 @@ describe("TerraDrawRouteSnapMode", () => {
                 coordinates: [[1, 2], [3, 4]],
             });
             expect(features[0].properties.routeId).toBe(1);
+
+            expect(config.onFinish).toHaveBeenCalledTimes(1);
         });
 
         it('should not increment routeId for cancelled routes (routeId should be assigned only for completed routes)', () => {
@@ -353,6 +363,8 @@ describe("TerraDrawRouteSnapMode", () => {
             routeSnapMode.start();
 
             routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            const [firstLine] = config.store.copyAll();
+            expect(firstLine.properties.routeId).toBe(1);
             routeSnapMode.cleanUp();
 
             // Start a new route.
@@ -364,6 +376,7 @@ describe("TerraDrawRouteSnapMode", () => {
             // Fails currently: routeId increments when starting a route,
             // so cancelled routes consume routeIds.
             expect(line.properties.routeId).toBe(1);
+            expect(config.onFinish).toHaveBeenCalledTimes(0);
         });
 
         describe('straightLineFallback', () => {
