@@ -181,6 +181,78 @@ describe("Routing", () => {
     });
 
     describe("setNetwork", () => {
+        it("should reindex from scratch on repeated setNetwork calls", () => {
+            const routing = new Routing({ network, routeFinder: mockRouteFinder });
+
+            const secondNetwork: FeatureCollection<LineString> = {
+                type: "FeatureCollection",
+                features: [
+                    {
+                        type: "Feature",
+                        geometry: {
+                            type: "LineString",
+                            coordinates: [
+                                [10, 10],
+                                [11, 11],
+                            ],
+                        },
+                        properties: {},
+                    },
+                ],
+            };
+
+            const thirdNetwork: FeatureCollection<LineString> = {
+                type: "FeatureCollection",
+                features: [
+                    {
+                        type: "Feature",
+                        geometry: {
+                            type: "LineString",
+                            coordinates: [
+                                [20, 20],
+                                [21, 21],
+                            ],
+                        },
+                        properties: {},
+                    },
+                ],
+            };
+
+            routing.setNetwork(secondNetwork);
+            routing.setNetwork(thirdNetwork);
+
+            expect(routing.getNodeCount()).toBe(2);
+            expect(routing.getClosestNetworkCoordinate([20, 20])).toEqual([20, 20]);
+            expect(routing.getClosestNetworkCoordinate([0, 0])).toEqual([20, 20]);
+        });
+
+        it("should not return stale closest coordinates from the previous network", () => {
+            const routing = new Routing({ network, routeFinder: mockRouteFinder });
+
+            const replacementNetwork: FeatureCollection<LineString> = {
+                type: "FeatureCollection",
+                features: [
+                    {
+                        type: "Feature",
+                        geometry: {
+                            type: "LineString",
+                            coordinates: [
+                                [10, 10],
+                                [11, 11],
+                            ],
+                        },
+                        properties: {},
+                    },
+                ],
+            };
+
+            routing.setNetwork(replacementNetwork);
+
+            // The previous network point [0,0] should no longer be indexed.
+            expect(routing.getClosestNetworkCoordinate([0, 0])).toEqual([10, 10]);
+            expect(routing.getClosestNetworkCoordinate([1, 1])).toEqual([10, 10]);
+        });
+
         it("should clear the route cache when the network is replaced", () => {
             const routing = new Routing({ network, routeFinder: mockRouteFinder, useCache: true });
 

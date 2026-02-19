@@ -57,6 +57,8 @@ export class Routing implements RoutingInterface {
 
   // Initialise the routing instance setting internal data structures
   private initialise() {
+    this.points = [];
+
     this.network.features.forEach((feature) => {
       feature.geometry.coordinates.forEach((coordinate) => {
         this.points.push(coordinate);
