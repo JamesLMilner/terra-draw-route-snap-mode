@@ -37,6 +37,7 @@
     "peerDependencies": {
         "terra-draw": "^1.22.0"
     },
+    "repository": "JamesLMilner/terra-draw-route-snap-mode",
     "devDependencies": {
         "@commitlint/cli": "17.1.2",
         "@commitlint/config-conventional": "17.1.0",
