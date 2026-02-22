@@ -37,6 +37,10 @@ type RouteSnapStyling = {
   routePointOutlineWidth: TerraDrawExtend.NumericStyling;
 };
 
+type StraightLineFallbackOptions = {
+  canSnapBackToNetwork?: boolean;
+};
+
 interface TerraDrawRouteSnapModeOptions<T extends TerraDrawExtend.CustomStyling>
   extends TerraDrawExtend.BaseModeOptions<T> {
   routing: RoutingInterface;
@@ -44,7 +48,7 @@ interface TerraDrawRouteSnapModeOptions<T extends TerraDrawExtend.CustomStyling>
   keyEvents?: TerraDrawRouteSnapModeKeyEvents | null;
   maxPoints?: number;
   cursors?: Partial<Cursors>;
-  straightLineFallback?: boolean;
+  straightLineFallback?: boolean | StraightLineFallbackOptions;
 }
 
 const { TerraDrawBaseDrawMode } = TerraDrawExtend;
@@ -64,6 +68,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
   private routeId = 0;
   private latestMouseMoveEvent: TerraDrawMouseEvent | null = null;
   private straightLineFallback: boolean = false;
+  private canSnapBackToNetwork: boolean = false;
 
   // When straight-line fallback is enabled, we persist whether the user is currently
   // drawing off-network with straight segments (committed via click).
@@ -104,7 +109,13 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     }
 
     if (options?.straightLineFallback !== undefined) {
-      this.straightLineFallback = options.straightLineFallback;
+      if (typeof options.straightLineFallback === "boolean") {
+        this.straightLineFallback = options.straightLineFallback;
+        this.canSnapBackToNetwork = false;
+      } else {
+        this.straightLineFallback = true;
+        this.canSnapBackToNetwork = options.straightLineFallback.canSnapBackToNetwork ?? false;
+      }
     }
   }
 
@@ -272,15 +283,27 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     routedLine,
     straightLine,
     forceStraightLine,
+    canSnapBackToNetwork,
   }: {
     closestNetworkCoordinate: Position;
     routedLine: Feature<LineString> | null;
     straightLine: Feature<LineString>;
     forceStraightLine: boolean;
+    canSnapBackToNetwork: boolean;
   }): { linestringRoute: Feature<LineString> | undefined; isStraightLine: boolean } {
     // If the user has already committed to drawing off-network, keep drawing straight
-    // segments until a routed segment is committed (state flips on click).
+    // segments unless they move/click back near the route network.
     if (forceStraightLine) {
+      if (canSnapBackToNetwork) {
+        return {
+          linestringRoute: this.getStraightLineString([
+            straightLine.geometry.coordinates[0],
+            closestNetworkCoordinate,
+          ]),
+          isStraightLine: false,
+        };
+      }
+
       return { linestringRoute: straightLine, isStraightLine: true };
     }
 
@@ -322,11 +345,17 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       closestNetworkCoordinate
     );
 
+    const canSnapBackToNetwork =
+      this.canSnapBackToNetwork &&
+      this.isDrawingStraightLine &&
+      this.measure(event, closestNetworkCoordinate) <= this.pointerDistance;
+
     const { linestringRoute } = this.resolveFallbackRouteLine({
       closestNetworkCoordinate,
       routedLine,
       straightLine,
       forceStraightLine: this.isDrawingStraightLine,
+      canSnapBackToNetwork,
     });
 
     if (!linestringRoute) {
@@ -372,11 +401,17 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
 
     const routedLine = this.routing.getRoute(fromCoordinate, closestNetworkCoordinate);
 
+    const canSnapBackToNetwork =
+      this.canSnapBackToNetwork &&
+      this.isDrawingStraightLine &&
+      this.measure(event, closestNetworkCoordinate) <= this.pointerDistance;
+
     const { linestringRoute, isStraightLine } = this.resolveFallbackRouteLine({
       closestNetworkCoordinate,
       routedLine,
       straightLine,
       forceStraightLine: this.isDrawingStraightLine,
+      canSnapBackToNetwork,
     });
 
     const pointToCreate = isStraightLine ? eventCoord : closestNetworkCoordinate;
