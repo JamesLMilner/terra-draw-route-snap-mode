@@ -17,5 +17,5 @@ export default (packageName, packageJsonPath, changelogPath) => ({
         },
     },
     changelogFile: changelogPath,
-    releaseCommitMessageFormat: `chore(${packageName}): release version {{currentTag}}`,
+    releaseCommitMessageFormat: `chore: release version {{currentTag}}`,
 });
