@@ -60,12 +60,13 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGELOG_URL: https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md
         run: |
           TAG="$(git describe --tags --abbrev=0)"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "GitHub release for $TAG already exists"
           else
-            gh release create "$TAG" --generate-notes --verify-tag
+            gh release create "$TAG" --notes "See [CHANGELOG.md](${CHANGELOG_URL}) for release notes." --verify-tag
           fi
 
       - name: Publish to npm
