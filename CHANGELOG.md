@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.4.1](https://github.com/JamesLMilner/terra-draw-route-snap-mode/compare/terra-draw-route-snap-mode@0.4.0...terra-draw-route-snap-mode@0.4.1) (2026-02-22)
+
+
+### chore
+
+* add repository url (#15) ([](https://github.com/JamesLMilner/terra-draw-route-snap-mode/commit/416bfc32d268062ce40f73c2735ab232dfe561ab)), closes [#15](https://github.com/JamesLMilner/terra-draw-route-snap-mode/issues/15)
+* ensure chores appear in the changelog (#17) ([](https://github.com/JamesLMilner/terra-draw-route-snap-mode/commit/f300da9332c5a9c911d3e5bf2bf9f1063de07c9e)), closes [#17](https://github.com/JamesLMilner/terra-draw-route-snap-mode/issues/17)
+* remove unused dev dependencies (#18) ([](https://github.com/JamesLMilner/terra-draw-route-snap-mode/commit/c1fd392e0485be51ce6619b517a3c6608a957b63)), closes [#18](https://github.com/JamesLMilner/terra-draw-route-snap-mode/issues/18)
+* upgrade peer dependency for terra-draw (#16) ([](https://github.com/JamesLMilner/terra-draw-route-snap-mode/commit/ae5f0196dec6cf766594ce8f53b11878dfbf7ad6)), closes [#16](https://github.com/JamesLMilner/terra-draw-route-snap-mode/issues/16)
+
 ## [0.4.0](https://github.com/JamesLMilner/terra-draw-route-snap-mode/compare/terra-draw-route-snap-mode@0.3.6...terra-draw-route-snap-mode@0.4.0) (2026-02-22)
 
 
