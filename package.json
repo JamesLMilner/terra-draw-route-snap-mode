@@ -35,7 +35,7 @@
     "author": "James Milner",
     "license": "MIT",
     "peerDependencies": {
-        "terra-draw": "^1.4.3"
+        "terra-draw": "^1.22.0"
     },
     "devDependencies": {
         "@commitlint/cli": "17.1.2",
