@@ -1,4 +1,4 @@
-name: terra-draw Release
+name: terra-draw-route-snap-mode Release
 
 permissions:
   contents: write
@@ -56,6 +56,17 @@ jobs:
 
       - name: Push tags upstream
         run: git push origin main --tags
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="$(git describe --tags --abbrev=0)"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub release for $TAG already exists"
+          else
+            gh release create "$TAG" --generate-notes --verify-tag
+          fi
 
       - name: Publish to npm
         run: npm publish
