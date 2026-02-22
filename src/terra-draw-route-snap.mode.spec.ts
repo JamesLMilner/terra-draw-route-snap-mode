@@ -4,7 +4,6 @@ import { TerraDrawRouteSnapMode } from "./terra-draw-route-snap-mode";
 import { CreateLineStringCollection, CreateThreePointNetwork, CreateTwoPointNetwork, MockCursorEvent, MockKeyboardEvent, MockModeConfig } from "./test/helpers";
 import { FeatureCollection, LineString } from "geojson";
 import { GeoJSONStoreFeatures } from "terra-draw";
-import { on } from "events";
 
 describe("TerraDrawRouteSnapMode", () => {
 
