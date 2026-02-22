@@ -10,6 +10,7 @@ import { Feature, LineString, Position } from "geojson";
 import { Validation } from "terra-draw/dist/common";
 import { RoutingInterface } from "./routing";
 import { FeatureId } from "terra-draw/dist/extend";
+import { isContext } from "vm";
 
 type TerraDrawRouteSnapModeKeyEvents = {
   cancel: KeyboardEvent["key"] | null;
@@ -151,7 +152,8 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       containerX: x,
       containerY: y,
       button: 'left' as const,
-      heldKeys: []
+      heldKeys: [],
+      isContextMenu: false,
     }
     const distToPrevious = this.measure(previousEvent, coordinateTwo);
 
