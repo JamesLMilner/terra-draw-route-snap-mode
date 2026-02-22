@@ -1,6 +1,6 @@
 {
     "name": "terra-draw-route-snap-mode",
-    "version": "0.3.5",
+    "version": "0.3.6",
     "description": "A mode for Terra Draw to provide snapping to a route network",
     "scripts": {
         "docs": "typedoc",
@@ -17,7 +17,9 @@
         "lint:fix": "eslint --fix src/",
         "lint:fix:quiet": "eslint --fix --quiet src/",
         "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|json)\"",
-        "format:quiet": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|json)\" --log-level=silent"
+        "format:quiet": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|json)\" --log-level=silent",
+        "release": "commit-and-tag-version ./scripts/versionrc.mjs -t terra-draw-route-snap-modew@",
+        "release:dryrun": "commit-and-tag-version ./scripts/versionrc.mjs -t terra-draw-route-snap-mode@ --dry-run"
     },
     "type": "module",
     "source": "src/terra-draw-route-snap-mode.ts",
