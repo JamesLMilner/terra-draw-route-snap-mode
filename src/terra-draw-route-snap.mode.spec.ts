@@ -18,8 +18,8 @@ describe("TerraDrawRouteSnapMode", () => {
 
         routeFinder = {
             getRoute: terraRoute.getRoute.bind(terraRoute),
-            setNetwork: () => terraRoute.buildRouteGraph.bind(terraRoute)(usedNetwork),
-            expandNetwork: () => terraRoute.expandRouteGraph.bind(terraRoute)(usedNetwork),
+            setNetwork: (updatedNetwork) => terraRoute.buildRouteGraph.bind(terraRoute)(updatedNetwork),
+            expandNetwork: (updatedNetwork) => terraRoute.expandRouteGraph.bind(terraRoute)(updatedNetwork),
         }
 
         return new Routing({
@@ -480,6 +480,136 @@ describe("TerraDrawRouteSnapMode", () => {
                     coordinates: [[1, 2], [3, 4], [50, 50]]
                 });
             });
+
+            it('should allow snapping back to the network after drawing off-network', () => {
+                const routing = createRouting(CreateTwoPointNetwork());
+                const routeSnapMode = new TerraDrawRouteSnapMode({
+                    routing,
+                    maxPoints: 6,
+                    straightLineFallback: {
+                        canSnapBackToNetwork: true,
+                    },
+                });
+
+                routeSnapMode.register(config);
+                routeSnapMode.start();
+
+                // Start on-network.
+                routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+                routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+                // Go off-network, forcing straight-line mode.
+                routeSnapMode.onClick(MockCursorEvent({ lng: 10, lat: 10 }));
+
+                // Click back on the network node to rejoin.
+                routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+                // Next click should route on-network again.
+                routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+
+                const [linestring, ...points] = config.store.copyAll();
+
+                expect(linestring.geometry).toEqual({
+                    type: "LineString",
+                    coordinates: [[1, 2], [3, 4], [10, 10], [3, 4], [1, 2]],
+                });
+
+                // Rejoin point is snapped to network, not left off-network.
+                expect(points.map((point) => point.geometry)).toEqual([
+                    { type: "Point", coordinates: [1, 2] },
+                    { type: "Point", coordinates: [3, 4] },
+                    { type: "Point", coordinates: [10, 10] },
+                    { type: "Point", coordinates: [3, 4] },
+                    { type: "Point", coordinates: [1, 2] },
+                ]);
+            });
+
+            it('should not snap back to the network when canSnapBackToNetwork is disabled', () => {
+                const routing = createRouting(CreateTwoPointNetwork());
+                const routeSnapMode = new TerraDrawRouteSnapMode({
+                    routing,
+                    maxPoints: 6,
+                    straightLineFallback: true,
+                    pointerDistance: 50,
+                });
+
+                routeSnapMode.register(config);
+                routeSnapMode.start();
+
+                // Start on-network.
+                routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+                routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+                // Go off-network, forcing straight-line mode.
+                routeSnapMode.onClick(MockCursorEvent({ lng: 10, lat: 10 }));
+
+                // Click near a network node; with snap-back disabled this should remain off-network.
+                routeSnapMode.onClick(MockCursorEvent({ lng: 3.1, lat: 4.1 }));
+
+                const [linestring, ...points] = config.store.copyAll();
+
+                expect(linestring.geometry).toEqual({
+                    type: "LineString",
+                    coordinates: [[1, 2], [3, 4], [10, 10], [3.1, 4.1]],
+                });
+
+                expect(points.map((point) => point.geometry)).toEqual([
+                    { type: "Point", coordinates: [1, 2] },
+                    { type: "Point", coordinates: [3, 4] },
+                    { type: "Point", coordinates: [10, 10] },
+                    { type: "Point", coordinates: [3.1, 4.1] },
+                ]);
+            });
+
+            it('should allow snapping back to a different network after drawing off-network and the network changes', () => {
+                const routing = createRouting(CreateTwoPointNetwork());
+                const routeSnapMode = new TerraDrawRouteSnapMode({
+                    routing,
+                    maxPoints: 6,
+                    straightLineFallback: {
+                        canSnapBackToNetwork: true,
+                    },
+                });
+
+                routeSnapMode.register(config);
+                routeSnapMode.start();
+
+                // Start on-network.
+                routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+                routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+                // Go off-network, forcing straight-line mode.
+                routeSnapMode.onClick(MockCursorEvent({ lng: 10, lat: 10 }));
+
+                routing.setNetwork(CreateLineStringCollection([
+                    [
+                        [12, 12],
+                        [15, 15],
+                    ],
+                ]));
+
+                // Click on the new network; with snap-back enabled this should snap to the new network, not the old one.
+                routeSnapMode.onClick(MockCursorEvent({ lng: 11.9, lat: 11.9 }));
+                routeSnapMode.onClick(MockCursorEvent({ lng: 14.9, lat: 14.9 }));
+
+                expect(config.onFinish).toHaveBeenCalledTimes(0);
+
+                const [linestring, ...points] = config.store.copyAll();
+
+                expect(linestring.geometry).toEqual({
+                    type: "LineString",
+                    coordinates: [[1, 2], [3, 4], [10, 10], [12, 12], [15, 15]],
+                });
+
+                expect(points.map((point) => point.geometry)).toEqual([
+                    { type: "Point", coordinates: [1, 2] },
+                    { type: "Point", coordinates: [3, 4] },
+                    { type: "Point", coordinates: [10, 10] },
+                    { type: "Point", coordinates: [12, 12] },
+                    { type: "Point", coordinates: [15, 15] },
+                ]);
+
+            });
         });
     });
 
@@ -646,6 +776,146 @@ describe("TerraDrawRouteSnapMode", () => {
 
             // Disable fallback and ensure it stays disabled.
             routeSnapMode.updateOptions({ straightLineFallback: false });
+        });
+
+        it('should stop snapping back to the network when canSnapBackToNetwork is disabled via updateOptions', () => {
+            const routing = createRouting(CreateTwoPointNetwork());
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing,
+                maxPoints: 6,
+                straightLineFallback: {
+                    canSnapBackToNetwork: true,
+                },
+                pointerDistance: 50,
+            });
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            // Start on-network.
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+            // Go off-network to enter straight-line mode.
+            routeSnapMode.onClick(MockCursorEvent({ lng: 10, lat: 10 }));
+
+            // Disable snap-back while leaving straight-line fallback enabled.
+            routeSnapMode.updateOptions({
+                straightLineFallback: {
+                    canSnapBackToNetwork: false,
+                },
+            });
+
+            // Click near a network node; this should remain off-network.
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3.1, lat: 4.1 }));
+
+            const [linestring, ...points] = config.store.copyAll();
+
+            expect(linestring.geometry).toEqual({
+                type: "LineString",
+                coordinates: [[1, 2], [3, 4], [10, 10], [3.1, 4.1]],
+            });
+
+            expect(points.map((point) => point.geometry)).toEqual([
+                { type: "Point", coordinates: [1, 2] },
+                { type: "Point", coordinates: [3, 4] },
+                { type: "Point", coordinates: [10, 10] },
+                { type: "Point", coordinates: [3.1, 4.1] },
+            ]);
+        });
+
+        it('should keep the move preview off-network after canSnapBackToNetwork is disabled via updateOptions', () => {
+            globalThis.requestAnimationFrame = (cb: FrameRequestCallback): number => {
+                cb(0);
+                return 0;
+            };
+
+            const routing = createRouting(CreateTwoPointNetwork());
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing,
+                maxPoints: 6,
+                straightLineFallback: {
+                    canSnapBackToNetwork: true,
+                },
+                pointerDistance: 50,
+            });
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            // Start on-network and then move off-network.
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+            routeSnapMode.onClick(MockCursorEvent({ lng: 10, lat: 10 }));
+
+            // Disable snap-back while straight-line fallback remains enabled.
+            routeSnapMode.updateOptions({
+                straightLineFallback: {
+                    canSnapBackToNetwork: false,
+                },
+            });
+
+            // Move near a network node; preview should remain straight to cursor.
+            routeSnapMode.onMouseMove(MockCursorEvent({ lng: 3.1, lat: 4.1 }));
+
+            const features = config.store.copyAll();
+            const lineStrings = features.filter((feature) => feature.geometry.type === "LineString");
+
+            // There are two linestrings because the move preview is still created, 
+            // but it should be a straight line to the cursor, not snapped to the network. 
+            expect(lineStrings).toHaveLength(2);
+            expect(lineStrings[1].geometry).toEqual({
+                type: "LineString",
+                coordinates: [[10, 10], [3.1, 4.1]],
+            });
+            expect(config.onFinish).toHaveBeenCalledTimes(0);
+        });
+
+        it('should start snapping back to the network when canSnapBackToNetwork is enabled via updateOptions', () => {
+            const routing = createRouting(CreateTwoPointNetwork());
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing,
+                maxPoints: 6,
+                straightLineFallback: {
+                    canSnapBackToNetwork: false,
+                },
+                pointerDistance: 50,
+            });
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            // Start on-network.
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+
+            // Go off-network to enter straight-line mode.
+            routeSnapMode.onClick(MockCursorEvent({ lng: 10, lat: 10 }));
+
+            // Enable snap-back while leaving straight-line fallback enabled.
+            routeSnapMode.updateOptions({
+                straightLineFallback: {
+                    canSnapBackToNetwork: true,
+                },
+            });
+
+            // Click near a network node; this should be on-network.
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3.1, lat: 4.1 }));
+
+            const [linestring, ...points] = config.store.copyAll();
+
+            expect(linestring.geometry).toEqual({
+                type: "LineString",
+                coordinates: [[1, 2], [3, 4], [10, 10], [3, 4]],
+            });
+
+            expect(points.map((point) => point.geometry)).toEqual([
+                { type: "Point", coordinates: [1, 2] },
+                { type: "Point", coordinates: [3, 4] },
+                { type: "Point", coordinates: [10, 10] },
+                { type: "Point", coordinates: [3, 4] },
+            ]);
         });
     });
 
