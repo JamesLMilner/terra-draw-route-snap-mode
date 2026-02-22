@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.4.0](https://github.com/JamesLMilner/terra-draw-route-snap-mode/compare/terra-draw-route-snap-mode@0.3.6...terra-draw-route-snap-mode@0.4.0) (2026-02-22)
+
+
+### Features
+
+* allow rejoining of the network with canSnapBackToNetwork ([#13](https://github.com/JamesLMilner/terra-draw-route-snap-mode/issues/13)) ([9d91f08](https://github.com/JamesLMilner/terra-draw-route-snap-mode/commit/9d91f0880e9f8e800a6d5e69ffd6baf8fbbd5c91))
+
 ## 0.3.6 (2026-02-22)
 
 
