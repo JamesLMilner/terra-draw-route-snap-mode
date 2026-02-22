@@ -1,4 +1,9 @@
-export default (packageName, packageJsonPath, changelogPath) => ({
+const path = require("node:path");
+
+const packageJsonPath = path.resolve(__dirname, "../package.json");
+const changelogPath = path.resolve(__dirname, "../CHANGELOG.md");
+
+module.exports = {
     preset: "conventionalcommits",
     bumpFiles: [
         {
@@ -8,7 +13,7 @@ export default (packageName, packageJsonPath, changelogPath) => ({
     ],
     packageFiles: [packageJsonPath],
     writerOpts: {
-        transform: (commit, context) => {
+        transform: (commit) => {
             if (commit.header.includes("automated update")) {
                 return null;
             }
@@ -17,5 +22,5 @@ export default (packageName, packageJsonPath, changelogPath) => ({
         },
     },
     changelogFile: changelogPath,
-    releaseCommitMessageFormat: `chore: release version {{currentTag}}`,
-});
+    releaseCommitMessageFormat: "chore: release version {{currentTag}}",
+};
