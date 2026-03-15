@@ -6,11 +6,10 @@ import {
   GeoJSONStoreFeatures,
   TerraDrawExtend
 } from "terra-draw";
-import { Feature, LineString, Position } from "geojson";
+import { Feature, LineString, Point, Position } from "geojson";
 import { Validation } from "terra-draw/dist/common";
 import { RoutingInterface } from "./routing";
 import { FeatureId } from "terra-draw/dist/extend";
-import { isContext } from "vm";
 
 type TerraDrawRouteSnapModeKeyEvents = {
   cancel: KeyboardEvent["key"] | null;
@@ -42,6 +41,15 @@ type StraightLineFallbackOptions = {
   canSnapBackToNetwork?: boolean;
 };
 
+type RouteSnapshot = {
+  lineCoordinates: Position[];
+  pointCoordinates: Position[];
+  routeId: number;
+  currentCoordinate: number;
+  isDrawingStraightLine: boolean;
+  didIncrementRouteIdForCurrentRoute: boolean;
+};
+
 interface TerraDrawRouteSnapModeOptions<T extends TerraDrawExtend.CustomStyling>
   extends TerraDrawExtend.BaseModeOptions<T> {
   routing: RoutingInterface;
@@ -70,6 +78,8 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
   private latestMouseMoveEvent: TerraDrawMouseEvent | null = null;
   private straightLineFallback: boolean = false;
   private canSnapBackToNetwork: boolean = false;
+  private undoHistory: RouteSnapshot[] = [];
+  private redoHistory: RouteSnapshot[] = [];
 
   // When straight-line fallback is enabled, we persist whether the user is currently
   // drawing off-network with straight segments (committed via click).
@@ -118,6 +128,200 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
         this.canSnapBackToNetwork = options.straightLineFallback.canSnapBackToNetwork ?? false;
       }
     }
+  }
+
+  override undo() {
+    if (!this.undoHistory.length) {
+      return;
+    }
+
+    const snapshotToUndo = this.undoHistory.pop();
+
+    if (!snapshotToUndo) {
+      return;
+    }
+
+    this.redoHistory.push(this.cloneSnapshot(snapshotToUndo));
+
+    if (!this.undoHistory.length) {
+      this.removeCurrentRouteFeatures();
+
+      if (snapshotToUndo.didIncrementRouteIdForCurrentRoute) {
+        this.routeId = Math.max(0, snapshotToUndo.routeId - 1);
+        this.didIncrementRouteIdForCurrentRoute = false;
+      }
+
+      return;
+    }
+
+    const previousSnapshot = this.undoHistory[this.undoHistory.length - 1];
+    this.applySnapshot(previousSnapshot);
+
+  }
+
+  override redo() {
+    const snapshotToRedo = this.redoHistory.pop();
+
+    if (!snapshotToRedo) {
+      return;
+    }
+
+    this.applySnapshot(snapshotToRedo);
+    this.undoHistory.push(this.cloneSnapshot(snapshotToRedo));
+
+  }
+
+  override undoSize(): number {
+    return this.undoHistory.length;
+  }
+
+  override redoSize(): number {
+    return this.redoHistory.length;
+  }
+
+  private clonePosition(position: Position): Position {
+    return [position[0], position[1]];
+  }
+
+  private cloneSnapshot(snapshot: RouteSnapshot): RouteSnapshot {
+    return {
+      ...snapshot,
+      lineCoordinates: snapshot.lineCoordinates.map((coordinate) => this.clonePosition(coordinate)),
+      pointCoordinates: snapshot.pointCoordinates.map((coordinate) => this.clonePosition(coordinate)),
+    };
+  }
+
+  private positionEquals(left: Position, right: Position): boolean {
+    return left[0] === right[0] && left[1] === right[1];
+  }
+
+  private positionArrayEquals(left: Position[], right: Position[]): boolean {
+    if (left.length !== right.length) {
+      return false;
+    }
+
+    return left.every((position, index) => this.positionEquals(position, right[index]));
+  }
+
+  private snapshotEquals(left: RouteSnapshot, right: RouteSnapshot): boolean {
+    return left.routeId === right.routeId &&
+      left.currentCoordinate === right.currentCoordinate &&
+      left.isDrawingStraightLine === right.isDrawingStraightLine &&
+      left.didIncrementRouteIdForCurrentRoute === right.didIncrementRouteIdForCurrentRoute &&
+      this.positionArrayEquals(left.lineCoordinates, right.lineCoordinates) &&
+      this.positionArrayEquals(left.pointCoordinates, right.pointCoordinates);
+  }
+
+  private removeCurrentRouteFeatures() {
+    const present = [this.currentId, this.moveLineId, ...this.currentPointIds].filter(
+      (id): id is FeatureId => Boolean(id) && this.store.has(id as FeatureId)
+    );
+
+    if (present.length) {
+      this.store.delete(present);
+    }
+
+    this.currentId = undefined;
+    this.moveLineId = undefined;
+    this.currentPointIds = [];
+    this.currentCoordinate = 0;
+    this.isDrawingStraightLine = false;
+
+    if (this.state === "drawing") {
+      this.setStarted();
+    }
+  }
+
+  private getCurrentSnapshot(): RouteSnapshot | undefined {
+    if (!this.currentId || !this.store.has(this.currentId)) {
+      return undefined;
+    }
+
+    const currentLineGeometry = this.store.getGeometryCopy<LineString>(this.currentId);
+
+    if (!currentLineGeometry) {
+      return undefined;
+    }
+
+    const pointCoordinates = this.currentPointIds
+      .map((pointId) => {
+        if (!this.store.has(pointId)) {
+          return undefined;
+        }
+
+        const pointGeometry = this.store.getGeometryCopy<Point>(pointId);
+
+        if (!pointGeometry) {
+          return undefined;
+        }
+
+        return this.clonePosition(pointGeometry.coordinates);
+      })
+      .filter((coordinate): coordinate is Position => Boolean(coordinate));
+
+    return {
+      lineCoordinates: currentLineGeometry.coordinates.map((coordinate) => this.clonePosition(coordinate)),
+      pointCoordinates,
+      routeId: this.routeId,
+      currentCoordinate: this.currentCoordinate,
+      isDrawingStraightLine: this.isDrawingStraightLine,
+      didIncrementRouteIdForCurrentRoute: this.didIncrementRouteIdForCurrentRoute,
+    };
+  }
+
+  private recordUndoSnapshot() {
+    const snapshot = this.getCurrentSnapshot();
+
+    if (!snapshot) {
+      return;
+    }
+
+    const previous = this.undoHistory[this.undoHistory.length - 1];
+    if (previous && this.snapshotEquals(previous, snapshot)) {
+      return;
+    }
+
+    this.undoHistory.push(snapshot);
+    this.redoHistory = [];
+  }
+
+  private applySnapshot(snapshot: RouteSnapshot) {
+    this.removeCurrentRouteFeatures();
+
+    const featureProperties = { mode: this.mode, isDrawnRoute: true, routeId: snapshot.routeId };
+
+    const [createdLineId, ...createdPointIds] = this.store.create([
+      {
+        geometry: {
+          type: "LineString",
+          coordinates: snapshot.lineCoordinates.map((coordinate) => this.clonePosition(coordinate)),
+        },
+        properties: featureProperties,
+      },
+      ...snapshot.pointCoordinates.map((coordinate) => ({
+        geometry: {
+          type: "Point" as const,
+          coordinates: this.clonePosition(coordinate),
+        },
+        properties: featureProperties,
+      })),
+    ]);
+
+    this.currentId = createdLineId;
+    this.currentPointIds = createdPointIds;
+    this.currentCoordinate = snapshot.currentCoordinate;
+    this.routeId = snapshot.routeId;
+    this.isDrawingStraightLine = snapshot.isDrawingStraightLine;
+    this.didIncrementRouteIdForCurrentRoute = snapshot.didIncrementRouteIdForCurrentRoute;
+
+    if (this.state === "started") {
+      this.setDrawing();
+    }
+  }
+
+  private clearUndoRedoHistory() {
+    this.undoHistory = [];
+    this.redoHistory = [];
   }
 
   private pixelDistance = (
@@ -171,6 +375,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     this.currentId = undefined;
     this.currentPointIds = [];
     this.isDrawingStraightLine = false;
+    this.clearUndoRedoHistory();
 
     // Go back to started state
     if (this.state === "drawing") {
@@ -466,6 +671,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       this.currentId = undefined;
       this.currentCoordinate = 0;
       this.currentPointIds = [];
+      this.clearUndoRedoHistory();
       return;
     }
 
@@ -564,6 +770,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       this.currentCoordinate = 0;
       this.currentPointIds = [];
       this.isDrawingStraightLine = false;
+      this.clearUndoRedoHistory();
     }
 
     if (this.currentId) {
@@ -612,6 +819,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
       this.currentId = createdId;
       this.currentPointIds.push(pointId);
       this.currentCoordinate++;
+      this.recordUndoSnapshot();
 
       if (this.state === "started") {
         this.setDrawing();
@@ -651,6 +859,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
 
         this.currentCoordinate = 2;
         this.currentPointIds.push(pointId);
+        this.recordUndoSnapshot();
 
         // Handle the edge-case where maxPoints is 2.
         if (this.currentCoordinate >= this.maxPoints) {
@@ -712,6 +921,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
 
           this.currentCoordinate++;
           this.currentPointIds.push(pointId);
+          this.recordUndoSnapshot();
 
           if (this.currentCoordinate === this.maxPoints) {
             this.finish();
@@ -758,6 +968,7 @@ export class TerraDrawRouteSnapMode extends TerraDrawBaseDrawMode<RouteSnapStyli
     this.currentPointIds = [];
     this.currentCoordinate = 0;
     this.isDrawingStraightLine = false;
+    this.clearUndoRedoHistory();
 
     // If the current route was never finished and we incremented the routeId on
     // start, roll it back so cancelled routes don't consume ids.

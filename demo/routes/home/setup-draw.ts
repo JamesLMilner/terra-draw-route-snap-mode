@@ -1,7 +1,9 @@
 import {
   TerraDraw,
   TerraDrawRenderMode,
-  TerraDrawExtend
+  TerraDrawExtend,
+  TerraDrawModeUndoRedo,
+  TerraDrawUndoRedoKeyboardShortcuts
 } from "terra-draw";
 import {
   TerraDrawLeafletAdapter
@@ -20,6 +22,10 @@ export function setupDraw(map: L.Map, leaflet: typeof L, routing: Routing) {
       map,
       coordinatePrecision: 9,
     }),
+    undoRedo: {
+      modeLevel: new TerraDrawModeUndoRedo({ maxStackSize: 20 }),
+      keyboardShortcuts: new TerraDrawUndoRedoKeyboardShortcuts()
+    },
     modes: [
       // Needed for outline
       new TerraDrawRenderMode({
@@ -33,8 +39,10 @@ export function setupDraw(map: L.Map, leaflet: typeof L, routing: Routing) {
       }),
       new TerraDrawRouteSnapMode({
         routing,
-        maxPoints: 5,
-        straightLineFallback: false,
+        maxPoints: 100,
+        straightLineFallback: {
+          canSnapBackToNetwork: true,
+        },
         styles: {
           routePointWidth: 5,
           routePointOutlineWidth: 2,

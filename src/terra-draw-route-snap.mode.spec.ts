@@ -676,6 +676,104 @@ describe("TerraDrawRouteSnapMode", () => {
         });
     });
 
+    describe('undo/redo', () => {
+        it('should undo the last committed route point while drawing', () => {
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing: createRouting(CreateThreePointNetwork()),
+                maxPoints: 5,
+            });
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 5, lat: 6 }));
+
+            routeSnapMode.undo();
+
+            const [line, ...points] = config.store.copyAll();
+
+            expect(line.geometry).toEqual({
+                type: "LineString",
+                coordinates: [[1, 2], [3, 4]],
+            });
+            expect(points).toHaveLength(2);
+            expect(routeSnapMode.undoSize()).toBe(2);
+            expect(routeSnapMode.redoSize()).toBe(1);
+        });
+
+        it('should remove the in-progress route when undoing the first committed point', () => {
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing: createRouting(CreateTwoPointNetwork()),
+                maxPoints: 5,
+            });
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            routeSnapMode.undo();
+
+            expect(config.store.copyAll()).toHaveLength(0);
+            expect(routeSnapMode.undoSize()).toBe(0);
+            expect(routeSnapMode.redoSize()).toBe(1);
+
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+
+            const [line] = config.store.copyAll();
+            expect(line.properties.routeId).toBe(1);
+        });
+
+        it('should redo an undone route step', () => {
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing: createRouting(CreateThreePointNetwork()),
+                maxPoints: 5,
+            });
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 5, lat: 6 }));
+
+            routeSnapMode.undo();
+            routeSnapMode.redo();
+
+            const [line, ...points] = config.store.copyAll();
+
+            expect(line.geometry).toEqual({
+                type: "LineString",
+                coordinates: [[1, 2], [3, 4], [5, 6]],
+            });
+            expect(points).toHaveLength(3);
+            expect(routeSnapMode.undoSize()).toBe(3);
+            expect(routeSnapMode.redoSize()).toBe(0);
+        });
+
+        it('should clear redo history after a new committed click', () => {
+            const routeSnapMode = new TerraDrawRouteSnapMode({
+                routing: createRouting(CreateThreePointNetwork()),
+                maxPoints: 5,
+            });
+
+            routeSnapMode.register(config);
+            routeSnapMode.start();
+
+            routeSnapMode.onClick(MockCursorEvent({ lng: 1, lat: 2 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 3, lat: 4 }));
+            routeSnapMode.onClick(MockCursorEvent({ lng: 5, lat: 6 }));
+
+            routeSnapMode.undo();
+            expect(routeSnapMode.redoSize()).toBe(1);
+
+            routeSnapMode.onClick(MockCursorEvent({ lng: 5, lat: 6 }));
+
+            expect(routeSnapMode.redoSize()).toBe(0);
+        });
+    });
+
     describe('onKeyUp', () => {
         it('should remove in-progress features when cancel is pressed', () => {
             const routeSnapMode = new TerraDrawRouteSnapMode({
